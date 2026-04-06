@@ -247,7 +247,7 @@ export const mockBookings: Booking[] = [
   },
   {
     id: "BK005",
-    movie: mockMovies[3],
+    movie: mockMovies[2],
     cinema: mockCinemas[2],
     showtime: mockShowtimes[4],
     seats: [

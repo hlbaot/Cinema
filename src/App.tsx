@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Page, Movie, Showtime, Cinema, Seat, User } from './types';
 import { mockMovies, mockCinemas, mockShowtimes, mockUser, mockBookings } from './data/mockData';
 
@@ -17,11 +18,29 @@ import ConfirmationPage from './components/ConfirmationPage';
 import ProfilePage from './components/ProfilePage';
 import StaffDashboard from './components/StaffDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import {
+  AuthNotice,
+  clearPostLoginPage,
+  clearStoredAccessToken,
+  clearStoredUser,
+  consumeGoogleOAuthCallback,
+  fetchCurrentUser,
+  finalizeGoogleOAuthAttempt,
+  loadStoredAccessToken,
+  loadStoredUser,
+  persistAccessToken,
+  persistUser,
+  resolvePostLoginPage,
+  savePostLoginPage,
+} from './utils/auth';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [previousPage, setPreviousPage] = useState<Page>('home');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [postLoginPage, setPostLoginPage] = useState<Page>('home');
+  const [authNotice, setAuthNotice] = useState<AuthNotice | null>(null);
+  const [hasHydratedAuth, setHasHydratedAuth] = useState(false);
   const [bookings, setBookings] = useState(mockBookings);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [selectedShowtime, setSelectedShowtime] = useState<Showtime | null>(null);
@@ -30,10 +49,93 @@ export default function App() {
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [bookingId, setBookingId] = useState<string>('');
   const currentUserRef = useRef<User | null>(currentUser);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateAuth = async () => {
+      const storedUser = loadStoredUser();
+      const storedAccessToken = loadStoredAccessToken();
+      const oauthResult = consumeGoogleOAuthCallback(searchParams);
+      let nextUser = oauthResult.user ?? storedUser;
+      let nextNotice = oauthResult.notice;
+      let resolvedOAuthUser = Boolean(oauthResult.user);
+      const accessToken = oauthResult.accessToken ?? storedAccessToken;
+
+      if (oauthResult.redirectPage && isMounted) {
+        setPostLoginPage(oauthResult.redirectPage);
+      }
+
+      if (oauthResult.accessToken) {
+        persistAccessToken(oauthResult.accessToken);
+      }
+
+      if (!nextUser && oauthResult.shouldFetchCurrentUser) {
+        const currentUserResult = await fetchCurrentUser(accessToken ?? undefined);
+
+        if (!isMounted) {
+          return;
+        }
+
+        finalizeGoogleOAuthAttempt();
+
+        if (currentUserResult.user) {
+          nextUser = currentUserResult.user;
+          resolvedOAuthUser = true;
+        } else {
+          nextNotice = {
+            type: 'error',
+            message:
+              currentUserResult.errorMessage ??
+              'Đăng nhập Google thành công ở backend nhưng frontend chưa lấy được hồ sơ người dùng.',
+          };
+        }
+      }
+
+      if (nextNotice?.type === 'error' && isMounted) {
+        setAuthNotice(nextNotice);
+        setCurrentPage('auth');
+      }
+
+      if (nextUser && isMounted) {
+        setCurrentUser(nextUser);
+
+        if (resolvedOAuthUser) {
+          setCurrentPage(resolvePostLoginPage(nextUser, oauthResult.redirectPage));
+          setPreviousPage('home');
+        }
+      }
+
+      if (isMounted) {
+        setHasHydratedAuth(true);
+      }
+    };
+
+    void hydrateAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!hasHydratedAuth) {
+      return;
+    }
+
+    if (currentUser) {
+      persistUser(currentUser);
+      return;
+    }
+
+    clearStoredUser();
+    clearStoredAccessToken();
+  }, [currentUser, hasHydratedAuth]);
 
   // Get filtered showtimes for selected movie
   const movieShowtimes = useMemo(() => {
@@ -45,17 +147,31 @@ export default function App() {
   const handleNavigate = (page: Page) => {
     let nextPage = page;
     const activeUser = currentUserRef.current;
+    let nextPostLoginPage: Page | null = null;
 
     if (page === 'profile' && !activeUser) {
       nextPage = 'auth';
+      nextPostLoginPage = 'profile';
     }
 
     if (page === 'staff' && activeUser?.role !== 'staff') {
       nextPage = 'auth';
+      nextPostLoginPage = 'staff';
     }
 
     if (page === 'admin' && activeUser?.role !== 'admin') {
       nextPage = 'auth';
+      nextPostLoginPage = 'admin';
+    }
+
+    if (nextPage === 'auth') {
+      const targetPage = nextPostLoginPage ?? 'home';
+      setPostLoginPage(targetPage);
+      savePostLoginPage(targetPage);
+      setAuthNotice(null);
+    } else {
+      setPostLoginPage('home');
+      clearPostLoginPage();
     }
 
     setPreviousPage(currentPage);
@@ -114,10 +230,16 @@ export default function App() {
   };
 
   const handleLogin = (user: User) => {
+    clearPostLoginPage();
+    setPostLoginPage('home');
+    setAuthNotice(null);
     setCurrentUser(user);
   };
 
   const handleLogout = () => {
+    clearPostLoginPage();
+    setPostLoginPage('home');
+    setAuthNotice(null);
     setCurrentUser(null);
     setPreviousPage(currentPage);
     setCurrentPage('home');
@@ -265,6 +387,9 @@ export default function App() {
           <AuthPage
             onNavigate={handleNavigate}
             onLogin={handleLogin}
+            redirectAfterLogin={postLoginPage}
+            authNotice={authNotice}
+            onClearAuthNotice={() => setAuthNotice(null)}
           />
         );
 

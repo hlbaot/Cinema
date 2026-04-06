@@ -1,25 +1,46 @@
 import { useState } from 'react';
 import { Page, User } from '../types';
+import {
+  AuthNotice,
+  DEFAULT_BACKEND_ORIGIN,
+  fetchCurrentUser,
+  getGoogleLoginUrl,
+  markGoogleOAuthPending,
+  persistAccessToken,
+  resolvePostLoginPage,
+  savePostLoginPage,
+} from '../utils/auth';
+
 
 interface AuthPageProps {
   onNavigate: (page: Page) => void;
   onLogin: (user: User) => void;
+  redirectAfterLogin: Page;
+  authNotice: AuthNotice | null;
+  onClearAuthNotice: () => void;
 }
 
-export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
+export default function AuthPage({
+  onNavigate,
+  onLogin,
+  redirectAfterLogin,
+  authNotice,
+  onClearAuthNotice,
+}: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  
+
   // Login form
   const [loginForm, setLoginForm] = useState({
     email: '',
     password: '',
     remember: false
   });
-  
+
   // Register form
   const [registerForm, setRegisterForm] = useState({
     fullName: '',
@@ -32,94 +53,128 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
     agreeTerms: false,
     subscribeNews: true
   });
-  
+
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   // Validate email
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
-  
+
   // Validate phone
   const validatePhone = (phone: string) => {
     return /^(0[3|5|7|8|9])+([0-9]{8})$/.test(phone);
   };
-  
+
+  const resetFeedback = () => {
+    setErrors({});
+    onClearAuthNotice();
+  };
+
+  const handleGoogleLogin = () => {
+    resetFeedback();
+    setIsGoogleLoading(true);
+    savePostLoginPage(redirectAfterLogin);
+    markGoogleOAuthPending();
+    window.location.assign(getGoogleLoginUrl());
+  };
+
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    resetFeedback();
     const newErrors: Record<string, string> = {};
-    
+
     if (!loginForm.email) {
       newErrors.email = 'Vui lòng nhập email';
     } else if (!validateEmail(loginForm.email)) {
       newErrors.email = 'Email không hợp lệ';
     }
-    
+
     if (!loginForm.password) {
       newErrors.password = 'Vui lòng nhập mật khẩu';
     } else if (loginForm.password.length < 6) {
       newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
     }
-    
+
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length === 0) {
       setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setIsLoading(false);
-      
-      const normalizedEmail = loginForm.email.toLowerCase();
-      const isAdmin = normalizedEmail.includes('admin');
-      const isStaff = !isAdmin && normalizedEmail.includes('staff');
-      const userRole = isAdmin ? 'admin' : isStaff ? 'staff' : 'customer';
-      
-      // Mock successful login
-      const user: User = {
-        id: 1,
-        name: isAdmin ? 'Quản trị viên CINEPRO' : isStaff ? 'Nhân viên CINEPRO' : 'Nguyễn Văn A',
-        email: loginForm.email,
-        phone: '0901 234 567',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-        membershipLevel: userRole === 'customer' ? 'VIP' : 'Standard',
-        points: userRole === 'customer' ? 2500 : 0,
-        totalSpent: userRole === 'customer' ? 5680000 : 0,
-        role: userRole
-      };
-      
-      onLogin(user);
-      setShowSuccess(true);
-      setTimeout(() => {
-        onNavigate(isAdmin ? 'admin' : isStaff ? 'staff' : 'home');
-      }, 1500);
+      try {
+        const response = await fetch(`${DEFAULT_BACKEND_ORIGIN}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: loginForm.email,
+            password: loginForm.password,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          setErrors({
+            submit: result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const accessToken = result.data?.access_token;
+        if (!accessToken) {
+          setErrors({ submit: 'Không nhận được access token từ máy chủ.' });
+          setIsLoading(false);
+          return;
+        }
+
+        persistAccessToken(accessToken);
+
+        // Fetch full profile (matching the user's model logic)
+        const userResult = await fetchCurrentUser(accessToken);
+        if (userResult.user) {
+          onLogin(userResult.user);
+          setShowSuccess(true);
+          setTimeout(() => {
+            onNavigate(resolvePostLoginPage(userResult.user!, redirectAfterLogin));
+          }, 1500);
+        } else {
+          setErrors({ submit: userResult.errorMessage || 'Không thể lấy thông tin người dùng.' });
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+        setErrors({ submit: 'Lỗi kết nối tới máy chủ. Vui lòng thử lại sau.' });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
-  
+
   // Handle Register
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    resetFeedback();
     const newErrors: Record<string, string> = {};
-    
+
     if (!registerForm.fullName) {
       newErrors.fullName = 'Vui lòng nhập họ tên';
     } else if (registerForm.fullName.length < 2) {
       newErrors.fullName = 'Họ tên phải có ít nhất 2 ký tự';
     }
-    
+
     if (!registerForm.email) {
       newErrors.email = 'Vui lòng nhập email';
     } else if (!validateEmail(registerForm.email)) {
       newErrors.email = 'Email không hợp lệ';
     }
-    
+
     if (!registerForm.phone) {
       newErrors.phone = 'Vui lòng nhập số điện thoại';
     } else if (!validatePhone(registerForm.phone)) {
       newErrors.phone = 'Số điện thoại không hợp lệ';
     }
-    
+
     if (!registerForm.password) {
       newErrors.password = 'Vui lòng nhập mật khẩu';
     } else if (registerForm.password.length < 6) {
@@ -127,40 +182,67 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
     } else if (!/(?=.*[0-9])(?=.*[a-zA-Z])/.test(registerForm.password)) {
       newErrors.password = 'Mật khẩu phải chứa cả chữ và số';
     }
-    
+
     if (!registerForm.confirmPassword) {
       newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu';
     } else if (registerForm.password !== registerForm.confirmPassword) {
       newErrors.confirmPassword = 'Mật khẩu không khớp';
     }
-    
+
     if (!registerForm.birthDate) {
       newErrors.birthDate = 'Vui lòng chọn ngày sinh';
     }
-    
+
     if (!registerForm.gender) {
       newErrors.gender = 'Vui lòng chọn giới tính';
     }
-    
+
     if (!registerForm.agreeTerms) {
       newErrors.agreeTerms = 'Bạn phải đồng ý với điều khoản sử dụng';
     }
-    
+
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length === 0) {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setIsLoading(false);
-      setShowSuccess(true);
-      
-      setTimeout(() => {
-        setIsLogin(true);
-        setShowSuccess(false);
-      }, 2000);
+      try {
+        const response = await fetch(`${DEFAULT_BACKEND_ORIGIN}/api/v1/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: registerForm.fullName,
+            email: registerForm.email,
+            phone: registerForm.phone,
+            password: registerForm.password,
+            birth_date: registerForm.birthDate,
+            gender: registerForm.gender,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          setErrors({
+            submit: result.message || 'Đăng ký thất bại. Vui lòng thử lại.',
+          });
+          return;
+        }
+
+        setShowSuccess(true);
+        setTimeout(() => {
+          setIsLogin(true);
+          setShowSuccess(false);
+          setLoginForm({ ...loginForm, email: registerForm.email });
+        }, 2000);
+      } catch (err) {
+        console.error('Register error:', err);
+        setErrors({ submit: 'Lỗi kết nối tới máy chủ. Vui lòng thử lại sau.' });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
-  
+
   // Password strength
   const getPasswordStrength = (password: string) => {
     let strength = 0;
@@ -171,10 +253,14 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
     if (/[^A-Za-z0-9]/.test(password)) strength++;
     return strength;
   };
-  
+
   const passwordStrength = getPasswordStrength(registerForm.password);
   const strengthLabels = ['Rất yếu', 'Yếu', 'Trung bình', 'Mạnh', 'Rất mạnh'];
   const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
+  const isFormBusy = isLoading || isGoogleLoading;
+
+
+  const isStandalonePage = true; 
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
@@ -184,7 +270,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-yellow-500/5 to-transparent rounded-full" />
-        
+
         {/* Film strip decoration */}
         <div className="absolute left-0 top-0 bottom-0 w-16 opacity-10">
           {[...Array(20)].map((_, i) => (
@@ -197,7 +283,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
           ))}
         </div>
       </div>
-      
+
       {/* Success Overlay */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -216,7 +302,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
           </div>
         </div>
       )}
-      
+
       <div className="relative z-10 min-h-screen flex items-center justify-center py-12 px-4">
         <div className="w-full max-w-md">
           {/* Logo */}
@@ -229,16 +315,18 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
             </button>
             <p className="text-gray-400 mt-2">Trải nghiệm điện ảnh đỉnh cao</p>
           </div>
-          
+
           {/* Auth Card */}
           <div className="bg-gray-900/80 backdrop-blur-xl rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
             {/* Tab Switcher */}
             <div className="flex border-b border-gray-800">
               <button
-                onClick={() => { setIsLogin(true); setErrors({}); }}
-                className={`flex-1 py-4 text-center font-semibold transition-all relative ${
-                  isLogin ? 'text-yellow-500' : 'text-gray-400 hover:text-white'
-                }`}
+                onClick={() => {
+                  setIsLogin(true);
+                  resetFeedback();
+                }}
+                className={`flex-1 py-4 text-center font-semibold transition-all relative ${isLogin ? 'text-yellow-500' : 'text-gray-400 hover:text-white'
+                  }`}
               >
                 Đăng nhập
                 {isLogin && (
@@ -246,10 +334,12 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                 )}
               </button>
               <button
-                onClick={() => { setIsLogin(false); setErrors({}); }}
-                className={`flex-1 py-4 text-center font-semibold transition-all relative ${
-                  !isLogin ? 'text-yellow-500' : 'text-gray-400 hover:text-white'
-                }`}
+                onClick={() => {
+                  setIsLogin(false);
+                  resetFeedback();
+                }}
+                className={`flex-1 py-4 text-center font-semibold transition-all relative ${!isLogin ? 'text-yellow-500' : 'text-gray-400 hover:text-white'
+                  }`}
               >
                 Đăng ký
                 {!isLogin && (
@@ -257,11 +347,27 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                 )}
               </button>
             </div>
-            
+
             <div className="p-6 md:p-8">
+              {authNotice && (
+                <div
+                  className={`mb-5 rounded-2xl border px-4 py-3 text-sm ${authNotice.type === 'error'
+                      ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                      : 'border-green-500/40 bg-green-500/10 text-green-200'
+                    }`}
+                >
+                  {authNotice.message}
+                </div>
+              )}
+
               {isLogin ? (
                 /* Login Form */
                 <form onSubmit={handleLogin} className="space-y-5">
+                  {errors.submit && (
+                    <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                      {errors.submit}
+                    </div>
+                  )}
                   {/* Email */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -283,7 +389,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                     </div>
                     {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
                   </div>
-                  
+
                   {/* Password */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -321,7 +427,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                     </div>
                     {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
                   </div>
-                  
+
                   {/* Remember & Forgot */}
                   <div className="flex items-center justify-between">
                     <label className="flex items-center cursor-pointer">
@@ -337,11 +443,11 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       Quên mật khẩu?
                     </button>
                   </div>
-                  
+
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isFormBusy}
                     className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-bold py-3.5 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isLoading ? (
@@ -361,7 +467,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       </>
                     )}
                   </button>
-                  
+
                   {/* Divider */}
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">
@@ -371,38 +477,27 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       <span className="px-4 bg-gray-900 text-gray-400">Hoặc đăng nhập với</span>
                     </div>
                   </div>
-                  
+
                   {/* Social Login */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-3">
                     <button
                       type="button"
-                      className="flex items-center justify-center py-3 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-all"
+                      onClick={handleGoogleLogin}
+                      disabled={isFormBusy}
+                      className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-600 bg-white px-4 py-3 font-semibold text-gray-900 transition-all hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24">
-                        <path fill="#EA4335" d="M5.26620003,9.76452941 C6.19878754,6.93863203 8.85444915,4.90909091 12,4.90909091 C13.6909091,4.90909091 15.2181818,5.50909091 16.4181818,6.49090909 L19.9090909,3 C17.7818182,1.14545455 15.0545455,0 12,0 C7.27006974,0 3.1977497,2.69829785 1.23999023,6.65002441 L5.26620003,9.76452941 Z"/>
-                        <path fill="#34A853" d="M16.0407269,18.0125889 C14.9509167,18.7163016 13.5660892,19.0909091 12,19.0909091 C8.86648613,19.0909091 6.21911939,17.076871 5.27698177,14.2678769 L1.23746264,17.3349879 C3.19279051,21.2936293 7.26500293,24 12,24 C14.9328362,24 17.7353462,22.9573905 19.834192,20.9995801 L16.0407269,18.0125889 Z"/>
-                        <path fill="#4A90E2" d="M19.834192,20.9995801 C22.0291676,18.9520994 23.4545455,15.903663 23.4545455,12 C23.4545455,11.2909091 23.3454545,10.5272727 23.1818182,9.81818182 L12,9.81818182 L12,14.4545455 L18.4363636,14.4545455 C18.1187732,16.013626 17.2662994,17.2212117 16.0407269,18.0125889 L19.834192,20.9995801 Z"/>
-                        <path fill="#FBBC05" d="M5.27698177,14.2678769 C5.03832634,13.556323 4.90909091,12.7937589 4.90909091,12 C4.90909091,11.2182781 5.03443647,10.4668121 5.26620003,9.76452941 L1.23999023,6.65002441 C0.43658717,8.26043162 0,10.0753848 0,12 C0,13.9195484 0.444780743,15.7## L1.23746264,17.3349879 L5.27698177,14.2678769 Z"/>
-                      </svg>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm font-black text-gray-900">
+                        G
+                      </span>
+                      <span>{isGoogleLoading ? 'Đang chuyển sang Google...' : 'Tiếp tục với Google'}</span>
                     </button>
-                    <button
-                      type="button"
-                      className="flex items-center justify-center py-3 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-all"
-                    >
-                      <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      className="flex items-center justify-center py-3 px-4 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-all"
-                    >
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                      </svg>
-                    </button>
+                    <p className="text-center text-xs text-gray-500">
+                      Frontend sẽ gọi trực tiếp BE qua endpoint
+                      {' '}
+                      <span className="font-mono text-gray-300">/api/v1/auth/google/login</span>
+                    </p>
                   </div>
-                  
+
                   {/* Staff Login Hint */}
                   <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl">
                     <div className="flex items-start gap-3">
@@ -422,6 +517,11 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
               ) : (
                 /* Register Form */
                 <form onSubmit={handleRegister} className="space-y-4">
+                  {errors.submit && (
+                    <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                      {errors.submit}
+                    </div>
+                  )}
                   {/* Full Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -443,7 +543,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                     </div>
                     {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
                   </div>
-                  
+
                   {/* Email & Phone */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -487,7 +587,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
                     </div>
                   </div>
-                  
+
                   {/* Password */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -529,9 +629,8 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                           {[...Array(5)].map((_, i) => (
                             <div
                               key={i}
-                              className={`h-1 flex-1 rounded-full ${
-                                i < passwordStrength ? strengthColors[passwordStrength - 1] : 'bg-gray-700'
-                              }`}
+                              className={`h-1 flex-1 rounded-full ${i < passwordStrength ? strengthColors[passwordStrength - 1] : 'bg-gray-700'
+                                }`}
                             />
                           ))}
                         </div>
@@ -542,7 +641,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                     )}
                     {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
                   </div>
-                  
+
                   {/* Confirm Password */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -587,7 +686,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                     </div>
                     {errors.confirmPassword && <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>}
                   </div>
-                  
+
                   {/* Birth Date & Gender */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -610,11 +709,10 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                         {['Nam', 'Nữ', 'Khác'].map((g) => (
                           <label
                             key={g}
-                            className={`flex-1 py-3 px-4 rounded-xl border cursor-pointer transition-all text-center ${
-                              registerForm.gender === g
+                            className={`flex-1 py-3 px-4 rounded-xl border cursor-pointer transition-all text-center ${registerForm.gender === g
                                 ? 'border-yellow-500 bg-yellow-500/20 text-yellow-500'
                                 : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
-                            }`}
+                              }`}
                           >
                             <input
                               type="radio"
@@ -631,7 +729,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       {errors.gender && <p className="mt-1 text-sm text-red-500">{errors.gender}</p>}
                     </div>
                   </div>
-                  
+
                   {/* Terms & Newsletter */}
                   <div className="space-y-3">
                     <label className={`flex items-start gap-3 cursor-pointer ${errors.agreeTerms ? 'text-red-500' : ''}`}>
@@ -646,7 +744,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       </span>
                     </label>
                     {errors.agreeTerms && <p className="text-sm text-red-500 ml-8">{errors.agreeTerms}</p>}
-                    
+
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
@@ -659,11 +757,11 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                       </span>
                     </label>
                   </div>
-                  
+
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isFormBusy}
                     className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-bold py-3.5 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
                   >
                     {isLoading ? (
@@ -686,7 +784,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
                 </form>
               )}
             </div>
-            
+
             {/* Benefits Banner */}
             <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-t border-gray-800 p-4">
               <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
@@ -705,7 +803,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
               </div>
             </div>
           </div>
-          
+
           {/* Footer Links */}
           <div className="mt-8 text-center text-sm text-gray-500">
             <p>© 2024 CINEPRO. Tất cả quyền được bảo lưu.</p>
@@ -719,7 +817,7 @@ export default function AuthPage({ onNavigate, onLogin }: AuthPageProps) {
           </div>
         </div>
       </div>
-      
+
       {/* Custom Styles */}
       <style>{`
         @keyframes scale-in {
