@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Page, User } from '../types';
 import {
   AuthNotice,
+  DEFAULT_AVATAR,
   DEFAULT_BACKEND_ORIGIN,
   fetchCurrentUser,
   getGoogleLoginUrl,
   markGoogleOAuthPending,
   persistAccessToken,
+  persistRefreshToken,
   resolvePostLoginPage,
   savePostLoginPage,
 } from '../utils/auth';
@@ -72,6 +74,48 @@ export default function AuthPage({
     onClearAuthNotice();
   };
 
+  const createFallbackUser = (apiUser: unknown): User | null => {
+    if (!apiUser || typeof apiUser !== 'object') {
+      return null;
+    }
+
+    const userRecord = apiUser as Record<string, unknown>;
+    const email =
+      typeof userRecord.email === 'string' && userRecord.email.trim()
+        ? userRecord.email.trim()
+        : '';
+    const role =
+      typeof userRecord.role === 'string' &&
+      ['admin', 'staff', 'customer'].includes(userRecord.role)
+        ? (userRecord.role as User['role'])
+        : 'customer';
+
+    if (!email) {
+      return null;
+    }
+
+    return {
+      id:
+        typeof userRecord.id === 'string' || typeof userRecord.id === 'number'
+          ? userRecord.id
+          : Date.now(),
+      name:
+        (typeof userRecord.full_name === 'string' && userRecord.full_name.trim()) ||
+        (typeof userRecord.name === 'string' && userRecord.name.trim()) ||
+        email,
+      email,
+      phone: typeof userRecord.phone === 'string' ? userRecord.phone : '',
+      avatar:
+        (typeof userRecord.avatar_url === 'string' && userRecord.avatar_url) ||
+        (typeof userRecord.avatar === 'string' && userRecord.avatar) ||
+        DEFAULT_AVATAR,
+      membershipLevel: 'Standard',
+      points: 0,
+      totalSpent: 0,
+      role,
+    };
+  };
+
   const handleGoogleLogin = () => {
     resetFeedback();
     setIsGoogleLoading(true);
@@ -105,6 +149,7 @@ export default function AuthPage({
       try {
         const response = await fetch(`${DEFAULT_BACKEND_ORIGIN}/api/v1/auth/login`, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: loginForm.email,
@@ -122,7 +167,8 @@ export default function AuthPage({
           return;
         }
 
-        const accessToken = result.data?.access_token;
+        const accessToken = result.data?.access_token || result.access_token || result.token;
+        const fallbackUser = createFallbackUser(result.data?.user || result.user || result.data);
         if (!accessToken) {
           setErrors({ submit: 'Không nhận được access token từ máy chủ.' });
           setIsLoading(false);
@@ -130,6 +176,11 @@ export default function AuthPage({
         }
 
         persistAccessToken(accessToken);
+        
+        const refreshToken = result.data?.refresh_token;
+        if (refreshToken) {
+          persistRefreshToken(refreshToken);
+        }
 
         // Fetch full profile (matching the user's model logic)
         const userResult = await fetchCurrentUser(accessToken);
@@ -138,6 +189,12 @@ export default function AuthPage({
           setShowSuccess(true);
           setTimeout(() => {
             onNavigate(resolvePostLoginPage(userResult.user!, redirectAfterLogin));
+          }, 1500);
+        } else if (fallbackUser) {
+          onLogin(fallbackUser);
+          setShowSuccess(true);
+          setTimeout(() => {
+            onNavigate(resolvePostLoginPage(fallbackUser, redirectAfterLogin));
           }, 1500);
         } else {
           setErrors({ submit: userResult.errorMessage || 'Không thể lấy thông tin người dùng.' });
@@ -208,6 +265,7 @@ export default function AuthPage({
       try {
         const response = await fetch(`${DEFAULT_BACKEND_ORIGIN}/api/v1/auth/register`, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             full_name: registerForm.fullName,
@@ -259,8 +317,6 @@ export default function AuthPage({
   const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
   const isFormBusy = isLoading || isGoogleLoading;
 
-
-  const isStandalonePage = true; 
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">

@@ -91,8 +91,12 @@ export default function Header({ currentPage, onNavigate, isLoggedIn = false, us
                   className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/10 transition-all"
                 >
                   {/* Avatar */}
-                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${getMembershipColor(user.membershipLevel)} flex items-center justify-center text-black font-bold text-sm`}>
-                    {user.name.charAt(0).toUpperCase()}
+                  <div className={`w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br ${getMembershipColor(user.membershipLevel)} flex items-center justify-center text-black font-bold text-sm`}>
+                    {user.avatar && user.avatar !== 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' ? (
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
                   </div>
                   
                   {/* User Info - Desktop only */}
@@ -110,8 +114,12 @@ export default function Header({ currentPage, onNavigate, isLoggedIn = false, us
                     {/* User Info Card */}
                     <div className="p-4 bg-gradient-to-br from-gray-800 to-gray-900 border-b border-gray-800">
                       <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getMembershipColor(user.membershipLevel)} flex items-center justify-center text-black font-bold text-lg`}>
-                          {user.name.charAt(0).toUpperCase()}
+                        <div className={`w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br ${getMembershipColor(user.membershipLevel)} flex items-center justify-center text-black font-bold text-lg`}>
+                          {user.avatar && user.avatar !== 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' ? (
+                            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                          ) : (
+                            user.name.charAt(0).toUpperCase()
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold text-white">{user.name}</p>
@@ -225,8 +233,12 @@ export default function Header({ currentPage, onNavigate, isLoggedIn = false, us
             {isLoggedIn && user && (
               <div className="px-4 py-3 mb-3 bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getMembershipColor(user.membershipLevel)} flex items-center justify-center text-black font-bold text-lg`}>
-                    {user.name.charAt(0).toUpperCase()}
+                  <div className={`w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br ${getMembershipColor(user.membershipLevel)} flex items-center justify-center text-black font-bold text-lg`}>
+                    {user.avatar && user.avatar !== 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' ? (
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-white">{user.name}</p>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { User, Crown, Star, Ticket, History, Settings, LogOut, ChevronRight, Calendar, MapPin, Clock, Gift } from 'lucide-react';
+import { User, Crown, Star, Ticket, History, Settings, LogOut, ChevronRight, Calendar, MapPin, Clock, Gift, Camera, Lock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { User as UserType, Booking } from '../types';
+import { updateUserProfile, uploadUserAvatar, DEFAULT_BACKEND_ORIGIN, changeUserPassword } from '../utils/auth';
 
 interface ProfilePageProps {
   user: UserType;
@@ -11,7 +12,78 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ user, bookings, onLogout }: ProfilePageProps) {
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'history' | 'settings'>('upcoming');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsChangingPassword(true);
+    setPasswordFeedback(null);
+
+    const result = await changeUserPassword(passwordData);
+    
+    if (result.success) {
+      setPasswordFeedback({ type: 'success', message: 'Thay đổi mật khẩu thành công!' });
+      setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
+    } else {
+      setPasswordFeedback({ type: 'error', message: result.message });
+    }
+    setIsChangingPassword(false);
+  };
+
+  const getFullAvatarUrl = (url: string) => {
+    if (url.startsWith('http')) return url;
+    return `${DEFAULT_BACKEND_ORIGIN}${url}`;
+  };
+
+  const [formData, setFormData] = useState({
+    full_name: user.name,
+    phone: user.phone || '',
+    avatar_url: user.avatar
+  });
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    setUpdateFeedback(null);
+
+    const result = await updateUserProfile(formData);
+    
+    if (result.success) {
+      setUpdateFeedback({ type: 'success', message: 'Cập nhật thông tin thành công!' });
+    } else {
+      setUpdateFeedback({ type: 'error', message: result.message });
+    }
+    setIsUpdating(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUpdateFeedback(null);
+
+    const result = await uploadUserAvatar(file);
+    
+    if (result.success && result.avatar_url) {
+      setFormData({ ...formData, avatar_url: result.avatar_url });
+      setUpdateFeedback({ type: 'success', message: 'Đã tải ảnh đại diện lên thành công!' });
+    } else {
+      setUpdateFeedback({ type: 'error', message: result.message });
+    }
+    setIsUploading(false);
+  };
 
   const upcomingBookings = bookings.filter((booking) =>
     booking.status === 'pending' || booking.status === 'confirmed'
@@ -43,7 +115,7 @@ export default function ProfilePage({ user, bookings, onLogout }: ProfilePagePro
               <div className="p-6 text-center border-b border-white/10">
                 <div className="relative inline-block mb-4">
                   <img 
-                    src={user.avatar} 
+                    src={getFullAvatarUrl(user.avatar)} 
                     alt={user.name}
                     className="w-24 h-24 rounded-full object-cover border-4 border-yellow-500"
                   />
@@ -93,7 +165,14 @@ export default function ProfilePage({ user, bookings, onLogout }: ProfilePagePro
 
               {/* Menu */}
               <div className="p-4 space-y-1">
-                <button className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors text-gray-300 hover:text-white">
+                <button 
+                  onClick={() => setActiveTab('settings')}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
+                    activeTab === 'settings' 
+                      ? 'bg-yellow-500 text-black' 
+                      : 'hover:bg-white/5 text-gray-300 hover:text-white'
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <Settings className="w-5 h-5" />
                     <span>Cài đặt tài khoản</span>
@@ -148,7 +227,174 @@ export default function ProfilePage({ user, bookings, onLogout }: ProfilePagePro
               </button>
             </div>
 
-            {/* Upcoming Tickets */}
+            {/* Settings View */}
+            {activeTab === 'settings' && (
+              <div className="bg-gradient-to-br from-white/5 to-white/0 rounded-2xl border border-white/10 p-6 md:p-8">
+                <h3 className="text-xl font-bold text-white mb-6">Thông tin cá nhân</h3>
+                
+                {updateFeedback && (
+                  <div className={`mb-6 p-4 rounded-xl border ${
+                    updateFeedback.type === 'success' 
+                      ? 'bg-green-500/10 border-green-500/50 text-green-400' 
+                      : 'bg-red-500/10 border-red-500/50 text-red-400'
+                  }`}>
+                    {updateFeedback.message}
+                  </div>
+                )}
+
+                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                  {/* Avatar Upload Section */}
+                  <div className="flex flex-col items-center mb-8 pb-8 border-b border-white/10">
+                    <div className="relative group mb-4">
+                      <img 
+                        src={getFullAvatarUrl(formData.avatar_url)} 
+                        alt="Preview"
+                        className="w-32 h-32 rounded-full object-cover border-4 border-yellow-500/30 group-hover:border-yellow-500 transition-colors"
+                      />
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                      <label className="absolute bottom-1 right-1 w-10 h-10 bg-yellow-500 hover:bg-yellow-400 text-black rounded-full flex items-center justify-center cursor-pointer shadow-lg transition-transform hover:scale-110">
+                        <Camera className="w-5 h-5" />
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          disabled={isUploading}
+                        />
+                      </label>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white font-medium">Ảnh đại diện</p>
+                      <p className="text-gray-400 text-xs mt-1">PNG, JPG tối đa 5MB</p>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-400">Họ và tên</label>
+                      <input 
+                        type="text"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                        placeholder="Nhập họ tên"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-400">Số điện thoại</label>
+                      <input 
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                        placeholder="Nhập số điện thoại"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-400">Email (Không thể thay đổi)</label>
+                    <input 
+                      type="email"
+                      value={user.email}
+                      disabled
+                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={isUpdating}
+                      className="bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-3 px-8 rounded-xl transition-all"
+                    >
+                      {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="mt-12 pt-8 border-t border-white/10">
+                  <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-yellow-500" />
+                    Bảo mật
+                  </h3>
+                  
+                  {/* Google Authenticated User Notice */}
+                  {user.avatar.includes('googleusercontent.com') ? (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl mt-4">
+                      <p className="text-yellow-500 text-sm">
+                        Bạn đang đăng nhập bằng <strong>Google</strong>. Mật khẩu của bạn được quản lý bởi Google và không thể thay đổi trực tiếp tại đây.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-6">
+                      <p className="text-gray-400 text-sm mb-6">Thay đổi mật khẩu định kỳ để bảo vệ tài khoản của bạn.</p>
+                      
+                      {passwordFeedback && (
+                        <div className={`mb-6 p-4 rounded-xl border ${
+                          passwordFeedback.type === 'success' 
+                            ? 'bg-green-500/10 border-green-500/50 text-green-400' 
+                            : 'bg-red-500/10 border-red-500/50 text-red-400'
+                        }`}>
+                          {passwordFeedback.message}
+                        </div>
+                      )}
+
+                      <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-400">Mật khẩu hiện tại</label>
+                          <input 
+                            type="password"
+                            value={passwordData.current_password}
+                            onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                            placeholder="••••••••"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-400">Mật khẩu mới</label>
+                          <input 
+                            type="password"
+                            value={passwordData.new_password}
+                            onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                            placeholder="••••••••"
+                            required
+                            minLength={6}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-400">Xác nhận mật khẩu mới</label>
+                          <input 
+                            type="password"
+                            value={passwordData.confirm_password}
+                            onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                            placeholder="••••••••"
+                            required
+                          />
+                        </div>
+                        <div className="pt-2">
+                          <button
+                            type="submit"
+                            disabled={isChangingPassword}
+                            className="bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-6 rounded-lg transition-all disabled:opacity-50"
+                          >
+                            {isChangingPassword ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {activeTab === 'upcoming' && (
               <div className="space-y-4">
                 {upcomingBookings.length > 0 ? (

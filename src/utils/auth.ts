@@ -10,6 +10,7 @@ interface OAuthCallbackResult {
   redirectPage: Page | null;
   user: User | null;
   accessToken: string | null;
+  refreshToken: string | null;
   shouldFetchCurrentUser: boolean;
 }
 
@@ -23,12 +24,11 @@ function isBrowser() {
 
 const USER_STORAGE_KEY = 'cinema-fe.current-user';
 const ACCESS_TOKEN_STORAGE_KEY = 'cinema-fe.access-token';
+const REFRESH_TOKEN_STORAGE_KEY = 'cinema-fe.refresh-token';
 const POST_LOGIN_PAGE_KEY = 'cinema-fe.post-login-page';
 const GOOGLE_OAUTH_PENDING_KEY = 'cinema-fe.google-oauth.pending';
 export const DEFAULT_BACKEND_ORIGIN =
-  isBrowser() && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-    ? `${window.location.protocol}//${window.location.hostname}:5050`
-    : 'http://localhost:5050';
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN?.trim() || 'http://localhost:5050';
 const GOOGLE_LOGIN_URL =
   process.env.NEXT_PUBLIC_GOOGLE_LOGIN_URL?.trim() ||
   `${DEFAULT_BACKEND_ORIGIN}/api/v1/auth/google/login`;
@@ -180,7 +180,7 @@ function createUserFromRecord(source: Record<string, unknown>): User | null {
   }
 
   const id = pickId(source, ['id', 'userId']) ?? Date.now();
-  const name = pickString(source, ['name', 'fullName', 'displayName', 'given_name']);
+  const name = pickString(source, ['name', 'fullName', 'full_name', 'displayName', 'given_name']);
   const email = pickString(source, ['email']);
 
   if (!name && !email) {
@@ -193,7 +193,8 @@ function createUserFromRecord(source: Record<string, unknown>): User | null {
     email: email ?? '',
     phone: pickString(source, ['phone', 'phoneNumber']) ?? '',
     avatar:
-      pickString(source, ['avatar', 'picture', 'photo', 'image', 'avatarUrl']) ?? DEFAULT_AVATAR,
+      pickString(source, ['avatar', 'avatar_url', 'picture', 'photo', 'image', 'avatarUrl']) ??
+      DEFAULT_AVATAR,
     membershipLevel: normalizeMembershipLevel(
       pickString(source, ['membershipLevel', 'membership', 'memberTier'])
     ),
@@ -352,6 +353,92 @@ export function clearStoredAccessToken() {
   window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
+export function persistRefreshToken(refreshToken: string) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+}
+
+export function loadStoredRefreshToken() {
+  if (!isBrowser()) {
+    return null;
+  }
+
+  const refreshToken = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  return refreshToken?.trim() ? refreshToken.trim() : null;
+}
+
+export function clearStoredRefreshToken() {
+  if (!isBrowser()) {
+    return;
+  }
+
+  window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+}
+
+export async function logoutUser() {
+  const accessToken = loadStoredAccessToken();
+
+  // Local cleanup should happen regardless of API success
+  const cleanup = () => {
+    clearStoredAccessToken();
+    clearStoredRefreshToken();
+    clearStoredUser();
+    clearPostLoginPage();
+  };
+
+  try {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${DEFAULT_BACKEND_ORIGIN}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    });
+
+    // Always cleanup local storage
+    cleanup();
+
+    if (!response.ok) {
+      let errorMessage = `Đăng xuất thất bại (${response.status}).`;
+
+      try {
+        const result = (await response.json()) as { message?: string };
+        if (result.message) {
+          errorMessage = result.message;
+        }
+      } catch {
+        // Ignore JSON parsing errors and keep the fallback message.
+      }
+
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+
+    return {
+      success: true,
+      message: null,
+    };
+  } catch (error) {
+    console.error('Logout Error:', error);
+    cleanup();
+    return {
+      success: false,
+      message: 'Không gọi được API đăng xuất của backend.',
+    };
+  }
+}
+
 export function persistUser(user: User) {
   if (!isBrowser()) {
     return;
@@ -442,6 +529,11 @@ export function resolvePostLoginPage(user: User, preferredPage: Page | null) {
     return 'profile';
   }
 
+  // Allow other pages if they are not restricted
+  if (preferredPage && !['admin', 'staff', 'auth'].includes(preferredPage)) {
+    return preferredPage;
+  }
+
   if (user.role === 'admin') {
     return 'admin';
   }
@@ -453,6 +545,8 @@ export function resolvePostLoginPage(user: User, preferredPage: Page | null) {
   return 'home';
 }
 
+
+
 export function consumeGoogleOAuthCallback(
   customParams?: URLSearchParams
 ): OAuthCallbackResult {
@@ -462,6 +556,7 @@ export function consumeGoogleOAuthCallback(
       redirectPage: null,
       user: null,
       accessToken: null,
+      refreshToken: null,
       shouldFetchCurrentUser: false,
     };
   }
@@ -482,6 +577,7 @@ export function consumeGoogleOAuthCallback(
       redirectPage: null,
       user: null,
       accessToken: null,
+      refreshToken: null,
       shouldFetchCurrentUser: false,
     };
   }
@@ -501,6 +597,12 @@ export function consumeGoogleOAuthCallback(
     'access-token',
     'token',
   ]);
+  const refreshToken = getSearchParam(params, [
+    'refreshToken',
+    'refresh_token',
+    'refresh-token',
+    'refresh',
+  ]);
 
   if (
     error ||
@@ -518,6 +620,7 @@ export function consumeGoogleOAuthCallback(
       redirectPage,
       user: null,
       accessToken: null,
+      refreshToken: null,
       shouldFetchCurrentUser: false,
     };
   }
@@ -536,6 +639,7 @@ export function consumeGoogleOAuthCallback(
       redirectPage,
       user,
       accessToken,
+      refreshToken,
       shouldFetchCurrentUser: !user,
     };
   }
@@ -549,13 +653,14 @@ export function consumeGoogleOAuthCallback(
       notice: accessToken
         ? null
         : {
-            type: 'error',
-            message:
-              'Google đã đăng nhập thành công ở backend, nhưng frontend chưa nhận được access token để tiếp tục gọi `/user/me`.',
-          },
+          type: 'error',
+          message:
+            'Google đã đăng nhập thành công ở backend, nhưng frontend chưa nhận được access token để tiếp tục gọi `/user/me`.',
+        },
       redirectPage,
       user: null,
       accessToken,
+      refreshToken,
       shouldFetchCurrentUser: Boolean(accessToken),
     };
   }
@@ -565,6 +670,7 @@ export function consumeGoogleOAuthCallback(
     redirectPage,
     user: null,
     accessToken,
+    refreshToken,
     shouldFetchCurrentUser: Boolean(accessToken),
   };
 }
@@ -574,12 +680,13 @@ export async function fetchCurrentUser(accessToken?: string) {
 
   try {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
     };
 
     if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+      // Ensure Bearer prefix and clean the token of any whitespace/quotes
+      const cleanToken = accessToken.replace(/^["']|["']$/g, '').trim();
+      headers['Authorization'] = `Bearer ${cleanToken}`;
     }
 
     const response = await fetch(`${apiBaseUrl}/api/v1/user/me`, {
@@ -642,5 +749,83 @@ export async function fetchCurrentUser(accessToken?: string) {
       user: null,
       errorMessage: 'Không gọi được API `/user/me` của backend.',
     };
+  }
+}
+
+export async function updateUserProfile(updateData: { full_name?: string; phone?: string; avatar_url?: string }) {
+  const apiBaseUrl = DEFAULT_BACKEND_ORIGIN;
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/user/me`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      const errorMsg = result.message || 'Cập nhật thất bại';
+      return { success: false, message: errorMsg };
+    }
+
+    return { success: true, message: result.message };
+  } catch (error: any) {
+    console.error('Update Profile Error:', error);
+    return { success: false, message: error.message || 'Lỗi kết nối tới máy chủ.' };
+  }
+}
+
+export async function uploadUserAvatar(file: File) {
+  const apiBaseUrl = DEFAULT_BACKEND_ORIGIN;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/user/me/avatar`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { success: false, message: result.message || 'Tải ảnh lên thất bại' };
+    }
+
+    return { success: true, avatar_url: result.avatar_url };
+  } catch (error: any) {
+    console.error('Upload Avatar Error:', error);
+    return { success: false, message: error.message || 'Lỗi kết nối tới máy chủ.' };
+  }
+}
+
+export async function changeUserPassword(data: { current_password: string; new_password: string; confirm_password: string }) {
+  const apiBaseUrl = DEFAULT_BACKEND_ORIGIN;
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/user/me/change-password`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return { success: false, message: result.message || 'Thay đổi mật khẩu thất bại' };
+    }
+
+    return { success: true, message: result.message };
+  } catch (error: any) {
+    console.error('Change Password Error:', error);
+    return { success: false, message: error.message || 'Lỗi kết nối tới máy chủ.' };
   }
 }

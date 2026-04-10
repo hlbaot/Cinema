@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Page, Movie, Showtime, Cinema, Seat, User } from './types';
 import { mockMovies, mockCinemas, mockShowtimes, mockUser, mockBookings } from './data/mockData';
 
@@ -28,7 +28,10 @@ import {
   finalizeGoogleOAuthAttempt,
   loadStoredAccessToken,
   loadStoredUser,
+  logoutUser,
   persistAccessToken,
+  persistRefreshToken,
+  clearStoredRefreshToken,
   persistUser,
   resolvePostLoginPage,
   savePostLoginPage,
@@ -49,6 +52,7 @@ export default function App() {
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [bookingId, setBookingId] = useState<string>('');
   const currentUserRef = useRef<User | null>(currentUser);
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -61,33 +65,50 @@ export default function App() {
     const hydrateAuth = async () => {
       const storedUser = loadStoredUser();
       const storedAccessToken = loadStoredAccessToken();
-      const oauthResult = consumeGoogleOAuthCallback(searchParams);
-      let nextUser = oauthResult.user ?? storedUser;
-      let nextNotice = oauthResult.notice;
-      let resolvedOAuthUser = Boolean(oauthResult.user);
-      const accessToken = oauthResult.accessToken ?? storedAccessToken;
+      
+      // Determine if we should process an OAuth callback
+      const hasOAuthSignals = 
+        searchParams.has('provider') || 
+        searchParams.has('oauth') || 
+        searchParams.has('status') || 
+        searchParams.has('accessToken') || 
+        searchParams.has('access_token') ||
+        searchParams.has('token');
 
-      if (oauthResult.redirectPage && isMounted) {
+      const oauthResult = hasOAuthSignals ? consumeGoogleOAuthCallback(searchParams) : null;
+      
+      let nextUser = oauthResult?.user ?? storedUser;
+      let nextNotice = oauthResult?.notice;
+      let resolvedOAuthUser = Boolean(oauthResult?.user);
+      const accessToken = oauthResult?.accessToken ?? storedAccessToken;
+
+      if (oauthResult?.redirectPage && isMounted) {
         setPostLoginPage(oauthResult.redirectPage);
       }
 
-      if (oauthResult.accessToken) {
+      if (oauthResult?.accessToken) {
         persistAccessToken(oauthResult.accessToken);
       }
 
-      if (!nextUser && oauthResult.shouldFetchCurrentUser) {
+      if (oauthResult?.refreshToken) {
+        persistRefreshToken(oauthResult.refreshToken);
+      }
+
+      if (!nextUser && (oauthResult?.shouldFetchCurrentUser || (!oauthResult && accessToken))) {
         const currentUserResult = await fetchCurrentUser(accessToken ?? undefined);
 
         if (!isMounted) {
           return;
         }
 
-        finalizeGoogleOAuthAttempt();
+        if (oauthResult) {
+          finalizeGoogleOAuthAttempt();
+        }
 
         if (currentUserResult.user) {
           nextUser = currentUserResult.user;
-          resolvedOAuthUser = true;
-        } else {
+          resolvedOAuthUser = oauthResult ? true : resolvedOAuthUser;
+        } else if (accessToken && oauthResult) {
           nextNotice = {
             type: 'error',
             message:
@@ -106,9 +127,14 @@ export default function App() {
         setCurrentUser(nextUser);
 
         if (resolvedOAuthUser) {
-          setCurrentPage(resolvePostLoginPage(nextUser, oauthResult.redirectPage));
+          setCurrentPage(resolvePostLoginPage(nextUser, oauthResult?.redirectPage ?? null));
           setPreviousPage('home');
         }
+      }
+
+      // Cleanup URL if we had signals
+      if (hasOAuthSignals && isMounted) {
+        router.replace('/', { scroll: false });
       }
 
       if (isMounted) {
@@ -121,7 +147,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!hasHydratedAuth) {
@@ -135,6 +161,7 @@ export default function App() {
 
     clearStoredUser();
     clearStoredAccessToken();
+    clearStoredRefreshToken();
   }, [currentUser, hasHydratedAuth]);
 
   // Get filtered showtimes for selected movie
@@ -236,8 +263,20 @@ export default function App() {
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const logoutResult = await logoutUser();
+
+    if (!logoutResult.success) {
+      console.warn(logoutResult.message);
+    }
+
+    // Clear URL signals to prevent re-hydration from URL params
+    router.replace('/', { scroll: false });
+    
     clearPostLoginPage();
+    clearStoredAccessToken();
+    clearStoredRefreshToken();
+    clearStoredUser();
     setPostLoginPage('home');
     setAuthNotice(null);
     setCurrentUser(null);
@@ -251,12 +290,12 @@ export default function App() {
       currentBookings.map((booking) =>
         booking.id === bookingId
           ? {
-              ...booking,
-              status: 'confirmed',
-              approvedBy: currentUser?.name ?? 'Staff CINEPRO',
-              approvedAt: new Date().toISOString(),
-              rejectionReason: undefined,
-            }
+            ...booking,
+            status: 'confirmed',
+            approvedBy: currentUser?.name ?? 'Staff CINEPRO',
+            approvedAt: new Date().toISOString(),
+            rejectionReason: undefined,
+          }
           : booking
       )
     );
@@ -267,12 +306,12 @@ export default function App() {
       currentBookings.map((booking) =>
         booking.id === bookingId
           ? {
-              ...booking,
-              status: 'rejected',
-              rejectedBy: currentUser?.name ?? 'Staff CINEPRO',
-              rejectedAt: new Date().toISOString(),
-              rejectionReason: reason,
-            }
+            ...booking,
+            status: 'rejected',
+            rejectedBy: currentUser?.name ?? 'Staff CINEPRO',
+            rejectedAt: new Date().toISOString(),
+            rejectionReason: reason,
+          }
           : booking
       )
     );
@@ -283,11 +322,11 @@ export default function App() {
       currentBookings.map((booking) =>
         booking.id === bookingId
           ? {
-              ...booking,
-              status: 'checked_in',
-              checkedInBy: currentUser?.name ?? 'Staff CINEPRO',
-              checkedInAt: new Date().toISOString(),
-            }
+            ...booking,
+            status: 'checked_in',
+            checkedInBy: currentUser?.name ?? 'Staff CINEPRO',
+            checkedInAt: new Date().toISOString(),
+          }
           : booking
       )
     );
@@ -297,7 +336,7 @@ export default function App() {
     switch (currentPage) {
       case 'home':
         return (
-          <HomePage 
+          <HomePage
             movies={mockMovies}
             onSelectMovie={handleSelectMovie}
             onViewAllMovies={() => handleNavigate('movies')}
@@ -377,7 +416,7 @@ export default function App() {
           <ProfilePage
             user={currentUser ?? mockUser}
             bookings={bookings}
-            onSelectBooking={() => {}}
+            onSelectBooking={() => { }}
             onLogout={handleLogout}
           />
         );
@@ -424,7 +463,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white">
       {!isStandalonePage && (
-        <Header 
+        <Header
           currentPage={currentPage}
           onNavigate={handleNavigate}
           isLoggedIn={Boolean(currentUser)}
@@ -432,7 +471,7 @@ export default function App() {
           onLogout={handleLogout}
         />
       )}
-      
+
       <main>
         {renderPage()}
       </main>
