@@ -84,10 +84,11 @@ export default function AuthPage({
       typeof userRecord.email === 'string' && userRecord.email.trim()
         ? userRecord.email.trim()
         : '';
+    const normalizedRole =
+      typeof userRecord.role === 'string' ? userRecord.role.toLowerCase().trim() : '';
     const role =
-      typeof userRecord.role === 'string' &&
-      ['admin', 'staff', 'customer'].includes(userRecord.role)
-        ? (userRecord.role as User['role'])
+      ['admin', 'staff', 'customer'].includes(normalizedRole)
+        ? (normalizedRole as User['role'])
         : 'customer';
 
     if (!email) {

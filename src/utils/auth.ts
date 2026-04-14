@@ -517,11 +517,11 @@ export function markGoogleOAuthPending() {
 }
 
 export function resolvePostLoginPage(user: User, preferredPage: Page | null) {
-  if (preferredPage === 'admin' && user.role === 'admin') {
+  if (user.role === 'admin') {
     return 'admin';
   }
 
-  if (preferredPage === 'staff' && user.role === 'staff') {
+  if (user.role === 'staff') {
     return 'staff';
   }
 
@@ -534,17 +534,8 @@ export function resolvePostLoginPage(user: User, preferredPage: Page | null) {
     return preferredPage;
   }
 
-  if (user.role === 'admin') {
-    return 'admin';
-  }
-
-  if (user.role === 'staff') {
-    return 'staff';
-  }
-
   return 'home';
 }
-
 
 
 export function consumeGoogleOAuthCallback(
