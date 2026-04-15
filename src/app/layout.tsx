@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import IntroScreen from "@/src/component/common/intro-screen";
+import IntroScreen from "@/public/intro-screen";
 import "../scss/globals.css";
 
 export const metadata: Metadata = {

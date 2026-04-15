@@ -20,6 +20,12 @@
   }
 }
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -33,4 +39,16 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

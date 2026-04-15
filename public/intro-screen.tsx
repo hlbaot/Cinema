@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import styles from "@/src/scss/intro-screen.module.css";
+import styles from "@/src/scss/intro-screen.module.scss";
 
 const INTRO_DURATION_MS = 3200;
 const EXIT_DURATION_MS = 700;
