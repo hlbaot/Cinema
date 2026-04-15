@@ -9,7 +9,7 @@ import type { HeaderUser, MembershipLevel } from "@/src/lib/auth";
 const navItems = [
   { href: "/trangChu", label: "Trang chu" },
   { href: "/phim", label: "Phim" },
-  { href: "/lichChieu", label: "bao toamn toajns" },
+  { href: "/lichChieu", label: "Lich chieu" },
 ];
 
 function FilmIcon({ className }: { className?: string }) {
