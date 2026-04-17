@@ -3,7 +3,9 @@ import '@/src/scss/hero.scss'
 
 function hero() {
   return (
-    <div>hero</div>
+    <div>
+      
+    </div>
   )
 }
 
