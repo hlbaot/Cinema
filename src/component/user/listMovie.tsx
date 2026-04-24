@@ -3,7 +3,9 @@ import '@/src/scss/listMovie.scss'
 
 function listMovie() {
   return (
-    <div>listMovie</div>
+    <div className='listMovie'>
+      listMovie
+    </div>
   )
 }
 

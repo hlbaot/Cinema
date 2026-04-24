@@ -62,19 +62,19 @@ export default function UserFooter() {
   return (
     <footer className="mt-auto border-t border-white/10 bg-black">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 items-start gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-red-600 to-red-700">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-red-600 to-red-700">
                 <FilmIcon className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold">
+              <span className="text-xl font-bold leading-none">
                 <span className="text-red-500">CINE</span>
                 <span className="text-white">PRO</span>
               </span>
             </div>
 
-            <p className="mb-4 text-sm text-gray-400">
+            <p className="mb-4 text-sm leading-6 text-gray-400">
               He thong rap chieu phim cao cap hang dau Viet Nam voi cong nghe IMAX,
               Dolby Atmos va dich vu Gold Class dang cap.
             </p>
@@ -113,11 +113,11 @@ export default function UserFooter() {
           </div>
 
           <div>
-            <h4 className="mb-4 font-bold text-white">Ve CINEPRO</h4>
+            <h4 className="mb-4 text-base leading-none font-bold text-white">Ve CINEPRO</h4>
             <ul className="space-y-2">
               {aboutLinks.map((item) => (
                 <li key={item}>
-                  <a href="#" className="text-sm text-gray-400 transition-colors hover:text-yellow-400">
+                  <a href="#" className="text-sm leading-6 text-gray-400 transition-colors hover:text-yellow-400">
                     {item}
                   </a>
                 </li>
@@ -126,11 +126,11 @@ export default function UserFooter() {
           </div>
 
           <div>
-            <h4 className="mb-4 font-bold text-white">Dich vu</h4>
+            <h4 className="mb-4 text-base leading-none font-bold text-white">Dich vu</h4>
             <ul className="space-y-2">
               {serviceLinks.map((item) => (
                 <li key={item}>
-                  <a href="#" className="text-sm text-gray-400 transition-colors hover:text-yellow-400">
+                  <a href="#" className="text-sm leading-6 text-gray-400 transition-colors hover:text-yellow-400">
                     {item}
                   </a>
                 </li>
@@ -139,17 +139,17 @@ export default function UserFooter() {
           </div>
 
           <div>
-            <h4 className="mb-4 font-bold text-white">Lien he</h4>
+            <h4 className="mb-4 text-base leading-none font-bold text-white">Lien he</h4>
             <ul className="space-y-3">
-              <li className="flex items-start gap-2 text-sm text-gray-400">
+              <li className="flex items-start gap-2 text-sm leading-6 text-gray-400">
                 <PhoneIcon className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>Hotline: 1900 6969</span>
               </li>
-              <li className="flex items-start gap-2 text-sm text-gray-400">
+              <li className="flex items-start gap-2 text-sm leading-6 text-gray-400">
                 <MailIcon className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>support@cinepro.vn</span>
               </li>
-              <li className="flex items-start gap-2 text-sm text-gray-400">
+              <li className="flex items-start gap-2 text-sm leading-6 text-gray-400">
                 <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>Landmark 81, Q. Binh Thanh, TP.HCM</span>
               </li>
@@ -158,12 +158,12 @@ export default function UserFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 md:flex-row">
-          <p className="text-sm text-gray-500">© 2024 CINEPRO. All rights reserved.</p>
+          <p className="text-sm leading-6 text-gray-500">© 2024 CINEPRO. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="#" className="text-sm text-gray-400 transition-colors hover:text-white">
+            <a href="#" className="text-sm leading-6 text-gray-400 transition-colors hover:text-white">
               Dieu khoan su dung
             </a>
-            <a href="#" className="text-sm text-gray-400 transition-colors hover:text-white">
+            <a href="#" className="text-sm leading-6 text-gray-400 transition-colors hover:text-white">
               Chinh sach bao mat
             </a>
           </div>

@@ -180,11 +180,14 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-black/90 backdrop-blur-lg">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between lg:h-20">
-          <button onClick={() => handleNavigate("/trangChu")} className="group flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-red-600 to-red-700 transition-transform group-hover:scale-105">
+          <button
+            onClick={() => handleNavigate("/trangChu")}
+            className="group flex items-center gap-3 self-center"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-red-600 to-red-700 transition-transform group-hover:scale-105">
               <FilmIcon className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold lg:text-2xl">
+            <span className="text-xl font-bold leading-none lg:text-2xl">
               <span className="text-red-500">CINE</span>
               <span className="text-white">PRO</span>
             </span>
@@ -213,7 +216,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen((prev) => !prev)}
-                  className="flex items-center gap-2 rounded-full px-2 py-1.5 transition-all hover:bg-white/10"
+                  className="flex items-center gap-2 rounded-full px-2 py-1.5 leading-none transition-all hover:bg-white/10"
                 >
                   <div
                     className={`flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br ${getMembershipColor(
@@ -331,8 +334,8 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                 onClick={() => handleNavigate("/auth/signin")}
                 className="group flex items-center gap-2 rounded-full bg-linear-to-r from-yellow-500 to-amber-600 px-4 py-2 transition-all hover:from-yellow-400 hover:to-amber-500"
               >
-                <UserIcon className="h-4 w-4 text-black" />
-                <span className="hidden text-sm font-medium text-black sm:inline">Dang nhap</span>
+                <UserIcon className="h-4 w-4 shrink-0 text-black" />
+                <span className="hidden text-sm leading-none font-medium text-black sm:inline">Dang nhap</span>
               </button>
             )}
 

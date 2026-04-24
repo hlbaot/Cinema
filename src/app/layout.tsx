@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body className="h-screen w-full" suppressHydrationWarning>
         <IntroScreen>{children}</IntroScreen>
       </body>
     </html>

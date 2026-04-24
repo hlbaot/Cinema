@@ -17,9 +17,9 @@ export default async function UserLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-50">
+    <div className="">
       <UserHeader user={user} />
-      <main className="mx-auto flex w-full max-w-6xl flex-1 px-6 pb-10 pt-28 lg:pt-32">
+      <main className="">
         {children}
       </main>
       <UserFooter />

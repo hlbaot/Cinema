@@ -3,7 +3,9 @@ import '@/src/scss/testingMonial.scss'
 
 function testingMonial() {
   return (
-    <div>testingMonial</div>
+    <div className='testingMonial'>
+      testingMonial
+    </div>
   )
 }
 
