@@ -44,7 +44,7 @@ export default function TestingMonial() {
     <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:max-w-6xl lg:px-8">
       <div className="mb-6 flex items-end justify-between gap-4 lg:mb-7">
         <div>
-          <h2 className="text-xl font-bold text-white sm:text-2xl lg:text-[1.75rem]">Tất cả phim</h2>
+          <h2 className="text-xl font-bold text-white sm:text-2xl lg:text-[1.75rem]">Danh sách phim</h2>
           <p className="mt-1 text-sm text-gray-400">Hiển thị toàn bộ phim hiện có tại CinePro</p>
         </div>
 
@@ -72,11 +72,7 @@ export default function TestingMonial() {
 
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-              <div
-                className={`absolute top-3 left-3 rounded px-2 py-1 text-xs font-bold text-white ${
-                  movie.status === "Đang chiếu" ? "bg-red-600" : "bg-violet-600"
-                }`}
-              >
+              <div className="absolute top-3 left-3 rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
                 {getMovieBadge(movie.status)}
               </div>
 
