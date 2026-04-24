@@ -7,4 +7,5 @@ export interface Movie {
     description:string,
     minutes:number,
     status:string,
+    
 }
