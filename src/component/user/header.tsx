@@ -201,9 +201,8 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-sm font-medium transition-colors hover:text-yellow-400 ${
-                    active ? "text-yellow-400" : "text-gray-300"
-                  }`}
+                  className={`text-sm font-medium transition-colors hover:text-yellow-400 ${active ? "text-yellow-400" : "text-gray-300"
+                    }`}
                 >
                   {item.label}
                 </Link>
@@ -234,9 +233,8 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                   </div>
 
                   <ChevronDownIcon
-                    className={`h-4 w-4 text-gray-400 transition-transform ${
-                      userMenuOpen ? "rotate-180" : ""
-                    }`}
+                    className={`h-4 w-4 text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -379,9 +377,8 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                   <button
                     key={item.href}
                     onClick={() => handleNavigate(item.href)}
-                    className={`rounded-lg px-4 py-3 text-left transition-colors ${
-                      active ? "bg-yellow-500/10 text-yellow-400" : "text-gray-300 hover:bg-white/5"
-                    }`}
+                    className={`rounded-lg px-4 py-3 text-left transition-colors ${active ? "bg-yellow-500/10 text-yellow-400" : "text-gray-300 hover:bg-white/5"
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -417,7 +414,6 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
           </div>
         )}
       </div>
-
       <style>{`
         @keyframes fade-in {
           from {
