@@ -13,7 +13,7 @@ export default function UserHomePage() {
         <ListMovie />
       </section>
 
-      <section className="flex min-h-screen w-full items-center justify-center bg-amber-100">
+      <section className="w-full bg-neutral-950 py-10 sm:py-12 lg:flex lg:min-h-[calc(100vh-5rem)] lg:items-center lg:py-8">
         <TestingMonial />
       </section>
     </div>
