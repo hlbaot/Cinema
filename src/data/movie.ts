@@ -48,6 +48,7 @@ export const dataMovie: Movie[] = [
         score: 89,
         genres: ["Action", "Adventure"],
     },
+    
     {
         id: 4,
         title: "Thỏ Ơi",
