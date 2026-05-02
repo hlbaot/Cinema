@@ -68,6 +68,29 @@ function ArrowRightIcon({ className }: IconProps) {
   );
 }
 
+function GoogleIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path
+        fill="#FFC107"
+        d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.2 36 24 36c-6.627 0-12-5.373-12-12S17.373 12 24 12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.052 6.053 29.277 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917Z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.306 14.691 12.88 19.51C14.658 15.108 18.968 12 24 12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.052 6.053 29.277 4 24 4c-7.682 0-14.417 4.337-17.694 10.691Z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.175 0 9.867-1.977 13.422-5.192l-6.19-5.238C29.157 35.148 26.676 36 24 36c-5.18 0-9.626-3.317-11.287-7.943l-6.525 5.027C9.429 39.556 16.169 44 24 44Z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611 20.083H42V20H24v8h11.303a12.05 12.05 0 0 1-4.073 5.57h.002l6.19 5.238C36.984 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z"
+      />
+    </svg>
+  );
+}
+
 function CoinIcon({ className }: IconProps) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -100,10 +123,7 @@ export default function SignInPage() {
 
   return (
     <main className="relative isolate min-h-screen overflow-x-hidden bg-[#04050a] text-white">
-      <div
-        className="pointer-events-none fixed inset-0 opacity-90"
-        aria-hidden="true"
-      >
+      <div className="pointer-events-none fixed inset-0 opacity-90" aria-hidden="true">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(239,68,68,0.22),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(245,158,11,0.16),transparent_24%),linear-gradient(180deg,#090b12_0%,#04050a_48%,#020309_100%)]" />
         <div className="absolute left-[-8rem] top-24 h-64 w-64 rounded-full bg-red-500/10 blur-3xl" />
         <div className="absolute bottom-[-6rem] right-[-2rem] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
@@ -134,10 +154,7 @@ export default function SignInPage() {
 
           <div className="flex min-h-[44rem] flex-col overflow-hidden rounded-[2rem] border border-white/8 bg-gray-900/75 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
             <div className="flex border-b border-white/8 text-sm sm:text-base">
-              <button
-                type="button"
-                className="relative flex-1 py-4 text-center font-semibold text-yellow-500"
-              >
+              <button type="button" className="relative flex-1 py-4 text-center font-semibold text-yellow-500">
                 Đăng nhập
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-500 to-amber-500" />
               </button>
@@ -228,12 +245,14 @@ export default function SignInPage() {
                 <div className="space-y-3">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 font-semibold text-gray-900 transition-all hover:bg-gray-100"
+                    className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:border-white/20 hover:bg-[#0b0b0b]"
                   >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm font-black text-gray-900">
-                      G
+                    <span className="flex items-center gap-4">
+                      <GoogleIcon className="h-7 w-7 shrink-0" />
+                      <span className="text-base font-semibold tracking-[0.01em] text-white sm:text-[1.15rem]">
+                        Tiếp tục với Google
+                      </span>
                     </span>
-                    <span>Tiếp tục với Google</span>
                   </button>
 
                   <p className="text-center text-xs leading-5 text-gray-500">
@@ -250,8 +269,8 @@ export default function SignInPage() {
                     <div>
                       <p className="mb-1 text-sm font-medium text-blue-400">Đăng nhập dành cho nhân viên?</p>
                       <p className="text-xs leading-5 text-gray-400">
-                        Sử dụng email có chứa &quot;<span className="font-mono text-yellow-500">staff</span>
-                        &quot; để đăng nhập vào Staff Portal.
+                        Sử dụng email có chứa &quot;<span className="font-mono text-yellow-500">staff</span>&quot;
+                        {" "}để đăng nhập vào Staff Portal.
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
                         VD: <span className="font-mono text-gray-400">staff@cinepro.vn</span>
