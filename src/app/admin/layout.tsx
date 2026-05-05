@@ -15,9 +15,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[#0b0b14] text-white">
       <AdminNavbar />
-      <main className="flex-1 p-8">{children}</main>
+      <main className="min-h-screen px-4 py-6 md:ml-64 md:px-8 md:py-8">{children}</main>
     </div>
   );
 }

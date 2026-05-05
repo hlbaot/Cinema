@@ -1,13 +1,8 @@
 import { cookies } from "next/headers";
+import type { AppRole, HeaderUser, MembershipLevel } from "@/src/lib/auth-shared";
 
-export type AppRole = "admin" | "staff" | "user";
-export type MembershipLevel = "Member" | "Silver" | "Gold" | "Platinum";
-
-export type HeaderUser = {
-  membershipLevel: MembershipLevel;
-  name: string;
-  points: number;
-};
+export { getRoleHomePath } from "@/src/lib/auth-shared";
+export type { AppRole, HeaderUser, MembershipLevel } from "@/src/lib/auth-shared";
 
 const DEFAULT_ROLE: AppRole = "user";
 
@@ -38,15 +33,4 @@ export async function getHeaderUserFromCookies(): Promise<HeaderUser | null> {
     name: cookieStore.get("USER_NAME")?.value ?? "Khach hang",
     points: Number.isFinite(points) ? points : 1250,
   };
-}
-
-export function getRoleHomePath(role: AppRole): string {
-  switch (role) {
-    case "admin":
-      return "/admin/overView";
-    case "staff":
-      return "/staff/checkVe";
-    default:
-      return "/trangChu";
-  }
 }

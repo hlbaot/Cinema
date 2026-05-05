@@ -3,7 +3,7 @@ import IntroScreen from "@/public/intro-screen";
 import ClickSpark from "@/public/uiux/ClickSpark";
 import "../scss/globals.css";
 import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
+import { cn } from "@/src/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 

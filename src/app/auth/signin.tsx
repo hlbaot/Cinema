@@ -1,10 +1,19 @@
 "use client";
 
+import Cookies from "js-cookie";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getRoleHomePath, type AppRole } from "@/src/lib/auth-shared";
 
 type IconProps = {
   className?: string;
+};
+
+type SignInPageProps = {
+  compact?: boolean;
+  onClose?: () => void;
+  onSwitchMode?: (mode: "signin" | "signup") => void;
 };
 
 function MailIcon({ className }: IconProps) {
@@ -117,42 +126,49 @@ function TicketIcon({ className }: IconProps) {
   );
 }
 
-export default function SignInPage() {
+export default function SignInPage({ compact = false, onClose, onSwitchMode }: SignInPageProps) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const filmStripMarks = Array.from({ length: 20 });
+
+  function handleQuickRoleLogin(role: AppRole) {
+    Cookies.set("ROLE", role);
+
+    if (role === "user") {
+      Cookies.set("USER_NAME", "Khach hang");
+      Cookies.set("USER_POINTS", "1250");
+      Cookies.set("MEMBERSHIP_LEVEL", "Member");
+    } else {
+      Cookies.remove("USER_NAME");
+      Cookies.remove("USER_POINTS");
+      Cookies.remove("MEMBERSHIP_LEVEL");
+    }
+
+    router.push(getRoleHomePath(role));
+    router.refresh();
+    onClose?.();
+  }
 
   return (
-    <main className="relative isolate min-h-screen overflow-x-hidden bg-[#04050a] text-white">
-      <div className="pointer-events-none fixed inset-0 opacity-90" aria-hidden="true">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(239,68,68,0.22),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(245,158,11,0.16),transparent_24%),linear-gradient(180deg,#090b12_0%,#04050a_48%,#020309_100%)]" />
-        <div className="absolute left-[-8rem] top-24 h-64 w-64 rounded-full bg-red-500/10 blur-3xl" />
-        <div className="absolute bottom-[-6rem] right-[-2rem] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:radial-gradient(circle_at_center,black,transparent_78%)]" />
-        <div className="absolute left-0 top-0 bottom-0 w-16 opacity-10">
-          {filmStripMarks.map((_, index) => (
-            <div key={`left-film-strip-${index}`} className="my-1 h-[5%] border-y-4 border-white/50" />
-          ))}
-        </div>
-        <div className="absolute right-0 top-0 bottom-0 w-16 opacity-10">
-          {filmStripMarks.map((_, index) => (
-            <div key={`right-film-strip-${index}`} className="my-1 h-[5%] border-y-4 border-white/50" />
-          ))}
-        </div>
-      </div>
-
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12 sm:px-6">
+    <main
+      className={`auth-modal-shell relative isolate overflow-x-hidden text-white ${compact ? "min-h-0 bg-transparent" : "min-h-screen bg-transparent"}`}
+    >
+      <div className={`relative z-10 flex items-center justify-center ${compact ? "px-0 py-0" : "min-h-screen px-4 py-12 sm:px-6"}`}>
         <div className="w-full max-w-[35rem]">
-          <div className="mb-8 text-center">
-            <Link href="/" className="inline-block">
-              <h1 className="text-4xl font-black tracking-[0.04em] sm:text-[2.7rem]">
-                <span className="text-red-500">CINE</span>
-                <span className="text-yellow-500">PRO</span>
-              </h1>
-            </Link>
-            <p className="mt-2 text-sm text-gray-400 sm:text-base">Trải nghiệm điện ảnh đỉnh cao</p>
-          </div>
+          {!compact ? (
+            <div className="mb-8 text-center">
+              <Link href="/" className="inline-block">
+                <h1 className="text-4xl font-black tracking-[0.04em] sm:text-[2.7rem]">
+                  <span className="text-red-500">CINE</span>
+                  <span className="text-yellow-500">PRO</span>
+                </h1>
+              </Link>
+              <p className="mt-2 text-sm text-gray-400 sm:text-base">Trải nghiệm điện ảnh đỉnh cao</p>
+            </div>
+          ) : null}
 
-          <div className="flex min-h-[44rem] flex-col overflow-hidden rounded-[2rem] border border-white/8 bg-gray-900/75 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+          <div
+            className={`flex flex-col overflow-hidden border border-white/8 bg-gray-900/75 backdrop-blur-2xl ${compact ? "rounded-[1.75rem] shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : "min-h-[44rem] rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"}`}
+          >
             <div className="flex border-b border-white/8 text-sm sm:text-base">
               <button type="button" className="relative flex-1 py-4 text-center font-semibold text-yellow-500">
                 Đăng nhập
@@ -161,10 +177,30 @@ export default function SignInPage() {
 
               <Link
                 href="/auth/signup"
+                onClick={(event) => {
+                  if (compact && onSwitchMode) {
+                    event.preventDefault();
+                    onSwitchMode("signup");
+                    return;
+                  }
+
+                  onClose?.();
+                }}
                 className="relative flex-1 py-4 text-center font-semibold text-gray-400 transition-colors hover:text-white"
               >
                 Đăng ký
               </Link>
+
+              {compact ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 text-gray-400 transition-colors hover:text-white"
+                  aria-label="Đóng đăng nhập"
+                >
+                  ✕
+                </button>
+              ) : null}
             </div>
 
             <div className="flex-1 p-5 sm:p-7">
@@ -233,6 +269,35 @@ export default function SignInPage() {
                   <ArrowRightIcon className="h-5 w-5" />
                 </button>
 
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Đăng nhập nhanh theo vai trò</p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickRoleLogin("user")}
+                      className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm font-bold text-yellow-400 transition-all hover:scale-[1.02] hover:bg-yellow-500/15"
+                    >
+                      Vào User
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickRoleLogin("staff")}
+                      className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-400 transition-all hover:scale-[1.02] hover:bg-sky-500/15"
+                    >
+                      Vào Staff
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickRoleLogin("admin")}
+                      className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-4 py-3 text-sm font-bold text-fuchsia-400 transition-all hover:scale-[1.02] hover:bg-fuchsia-500/15"
+                    >
+                      Vào Admin
+                    </button>
+                  </div>
+                </div>
+
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-700" />
@@ -269,8 +334,8 @@ export default function SignInPage() {
                     <div>
                       <p className="mb-1 text-sm font-medium text-blue-400">Đăng nhập dành cho nhân viên?</p>
                       <p className="text-xs leading-5 text-gray-400">
-                        Sử dụng email có chứa &quot;<span className="font-mono text-yellow-500">staff</span>&quot;
-                        {" "}để đăng nhập vào Staff Portal.
+                        Sử dụng email có chứa &quot;<span className="font-mono text-yellow-500">staff</span>&quot;{" "}
+                        để đăng nhập vào Staff Portal.
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
                         VD: <span className="font-mono text-gray-400">staff@cinepro.vn</span>
@@ -295,24 +360,39 @@ export default function SignInPage() {
             </div>
           </div>
 
-          <div className="mt-8 text-center text-sm text-gray-500">
-            <p>© 2024 CINEPRO. Tất cả quyền được bảo lưu.</p>
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-              <button type="button" className="transition-colors hover:text-yellow-500">
-                Hỗ trợ
-              </button>
-              <span>•</span>
-              <button type="button" className="transition-colors hover:text-yellow-500">
-                Liên hệ
-              </button>
-              <span>•</span>
-              <button type="button" className="transition-colors hover:text-yellow-500">
-                FAQ
-              </button>
+          {!compact ? (
+            <div className="mt-8 text-center text-sm text-gray-500">
+              <p>© 2024 CINEPRO. Tất cả quyền được bảo lưu.</p>
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+                <button type="button" className="transition-colors hover:text-yellow-500">
+                  Hỗ trợ
+                </button>
+                <span>•</span>
+                <button type="button" className="transition-colors hover:text-yellow-500">
+                  Liên hệ
+                </button>
+                <span>•</span>
+                <button type="button" className="transition-colors hover:text-yellow-500">
+                  FAQ
+                </button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
+      <style>{`
+        .auth-modal-shell,
+        .auth-modal-shell * {
+          scrollbar-width: none;
+        }
+
+        .auth-modal-shell::-webkit-scrollbar,
+        .auth-modal-shell *::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+      `}</style>
     </main>
   );
 }

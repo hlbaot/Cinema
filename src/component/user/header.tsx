@@ -1,10 +1,33 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Modal from "@mui/material/Modal";
 import Cookies from "js-cookie";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { HeaderUser, MembershipLevel } from "@/src/lib/auth";
+import SignInPage from "@/src/app/auth/signin";
+import SignUpPage from "@/src/app/auth/signup";
+import type { HeaderUser, MembershipLevel } from "@/src/lib/auth-shared";
+
+const authModalStyle = {
+  position: "absolute" as const,
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: "min(calc(100% - 32px), 576px)",
+  maxHeight: "calc(100vh - 32px)",
+  overflowY: "auto" as const,
+  scrollbarWidth: "none" as const,
+  bgcolor: "transparent",
+  border: "none",
+  boxShadow: "none",
+  p: 0,
+  outline: "none",
+  "&::-webkit-scrollbar": {
+    display: "none",
+  },
+};
 
 const navItems = [
   { href: "/trangChu", label: "Trang chu" },
@@ -138,6 +161,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [authModalView, setAuthModalView] = useState<"signin" | "signup" | null>(null);
   const [userOverride, setUserOverride] = useState<HeaderUser | null | undefined>(undefined);
 
   useEffect(() => {
@@ -172,6 +196,16 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
     setUserMenuOpen(false);
     router.push("/trangChu");
     router.refresh();
+  }
+
+  function openSignInModal() {
+    setMobileMenuOpen(false);
+    setUserMenuOpen(false);
+    setAuthModalView("signin");
+  }
+
+  function closeAuthModal() {
+    setAuthModalView(null);
   }
 
   const isLoggedIn = Boolean(user);
@@ -329,7 +363,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
               </div>
             ) : (
               <button
-                onClick={() => handleNavigate("/auth/signin")}
+                onClick={openSignInModal}
                 className="group flex items-center gap-2 rounded-full bg-linear-to-r from-yellow-500 to-amber-600 px-4 py-2 transition-all hover:from-yellow-400 hover:to-amber-500"
               >
                 <UserIcon className="h-4 w-4 shrink-0 text-black" />
@@ -404,7 +438,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                 </>
               ) : (
                 <button
-                  onClick={() => handleNavigate("/auth/signin")}
+                  onClick={openSignInModal}
                   className="mx-4 mt-2 rounded-lg bg-linear-to-r from-yellow-500 to-amber-600 py-3 text-center font-semibold text-black"
                 >
                   Dang nhap / Dang ky
@@ -414,6 +448,28 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
           </div>
         )}
       </div>
+      <Modal
+        open={Boolean(authModalView)}
+        onClose={closeAuthModal}
+        aria-labelledby="auth-modal-title"
+        aria-describedby="auth-modal-description"
+        slotProps={{
+          backdrop: {
+            sx: {
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(12px)",
+            },
+          },
+        }}
+      >
+        <Box sx={authModalStyle}>
+          {authModalView === "signin" ? (
+            <SignInPage compact onClose={closeAuthModal} onSwitchMode={setAuthModalView} />
+          ) : authModalView === "signup" ? (
+            <SignUpPage compact onClose={closeAuthModal} onSwitchMode={setAuthModalView} />
+          ) : null}
+        </Box>
+      </Modal>
       <style>{`
         @keyframes fade-in {
           from {
