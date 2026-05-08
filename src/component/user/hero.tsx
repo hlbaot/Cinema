@@ -1,7 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { getMovieDetailHref } from '@/src/lib/movie-navigation'
 import { dataMovie } from '@/src/data/movie'
 
 function StarIcon() {
@@ -229,13 +231,13 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <a
-                href="/trangDatVe"
+              <Link
+                href={getMovieDetailHref(currentMovie.id, 'showtimes')}
                 className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 px-8 py-4 font-bold text-black transition-all hover:scale-105 hover:from-yellow-400 hover:to-amber-500"
               >
                 <TicketIcon />
                 <span>MUA VE NGAY</span>
-              </a>
+              </Link>
 
               <a
                 href={currentMovie.trailer}
