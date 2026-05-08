@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { dataMovie, type Movie } from "@/src/data/movie";
+import { getMovieDetailHref } from "@/src/lib/movie-navigation";
 
 import {
   ALL_GENRE_LABEL,
@@ -14,7 +15,7 @@ import {
 
 const showingStatus: Movie["status"] = "\u0110ang chi\u1ebfu";
 const comingStatus: Movie["status"] = "S\u1eafp ra m\u1eaft";
-
+ 
 function PlayIcon() {
   return (
     <svg className="ml-1 h-8 w-8 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -96,7 +97,13 @@ function movieMatchesRating(movie: Movie, selectedRating: string) {
 
 function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
   return (
-    <article className="group cursor-pointer" style={{ animationDelay: `${index * 50}ms` }}>
+    <article className="group relative cursor-pointer" style={{ animationDelay: `${index * 50}ms` }}>
+      <Link
+        href={getMovieDetailHref(movie.id)}
+        aria-label={`Xem chi tiết phim ${movie.title}`}
+        className="absolute inset-0 z-10 rounded-xl"
+      />
+
       <div className="relative mb-3 aspect-[2/3] overflow-hidden rounded-xl bg-gray-900">
         <Image
           src={movie.poster}
@@ -143,8 +150,8 @@ function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
           </div>
 
           <Link
-            href="/trangDatVe"
-            className="w-full rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 py-2 text-center text-sm font-bold text-black transition-all hover:scale-105 hover:from-yellow-400 hover:to-amber-400"
+            href={getMovieDetailHref(movie.id, "showtimes")}
+            className="relative z-20 w-full rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 py-2 text-center text-sm font-bold text-black transition-all hover:scale-105 hover:from-yellow-400 hover:to-amber-400"
           >
             {"MUA V\u00c9"}
           </Link>
@@ -173,8 +180,14 @@ function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
 
 function MovieListRow({ movie }: { movie: Movie }) {
   return (
-    <article className="overflow-hidden rounded-3xl border border-[#202B3D] bg-[#0A101B] transition-all duration-300 hover:border-yellow-500/30 hover:shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
-      <div className="flex flex-col md:flex-row">
+    <article className="group relative overflow-hidden rounded-3xl border border-[#202B3D] bg-[#0A101B] transition-all duration-300 hover:border-yellow-500/30 hover:shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
+      <Link
+        href={getMovieDetailHref(movie.id)}
+        aria-label={`Xem chi tiết phim ${movie.title}`}
+        className="absolute inset-0 z-10 rounded-3xl"
+      />
+
+      <div className="relative z-20 flex flex-col md:flex-row">
         <div className="relative h-[280px] w-full overflow-hidden bg-gray-900 md:h-auto md:w-[190px] md:min-w-[190px]">
           <Image
             src={movie.poster}
@@ -212,7 +225,7 @@ function MovieListRow({ movie }: { movie: Movie }) {
                 )}
               </div>
 
-              <h3 className="text-2xl font-black uppercase tracking-tight text-white sm:text-[2rem]">
+              <h3 className="text-2xl font-black uppercase tracking-tight text-white transition-colors group-hover:text-yellow-400 sm:text-[2rem]">
                 {movie.title}
               </h3>
             </div>
@@ -248,7 +261,7 @@ function MovieListRow({ movie }: { movie: Movie }) {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/trangDatVe"
+              href={getMovieDetailHref(movie.id, "showtimes")}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-7 py-3 font-bold text-black transition-all hover:brightness-105"
             >
               <TicketIcon />

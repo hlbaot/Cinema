@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { dataMovie } from "@/src/data/movie";
+import { getMovieDetailHref } from "@/src/lib/movie-navigation";
 
 function StarIcon({ className }: { className?: string }) {
   return (
@@ -57,7 +58,13 @@ export default function ListMovieDebuted() {
 
       <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-4 md:gap-y-7 lg:gap-x-5">
         {debutedMovies.map((movie) => (
-          <article key={movie.id} className="group min-w-0 cursor-pointer">
+          <article key={movie.id} className="group relative min-w-0 cursor-pointer">
+            <Link
+              href={getMovieDetailHref(movie.id)}
+              aria-label={`Xem chi tiết phim ${movie.title}`}
+              className="absolute inset-0 z-10 rounded-lg"
+            />
+
             <div className="relative mb-2.5 aspect-[2/3] overflow-hidden rounded-lg">
               <Image
                 src={movie.poster}
@@ -80,8 +87,8 @@ export default function ListMovieDebuted() {
 
               <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                 <Link
-                  href="/lichChieu"
-                  className="rounded-lg bg-linear-to-r from-yellow-500 to-amber-600 px-4 py-2 text-xs font-bold text-black transition-transform hover:scale-105 sm:px-5 sm:py-2.5 sm:text-sm"
+                  href={getMovieDetailHref(movie.id, "showtimes")}
+                  className="relative z-20 rounded-lg bg-linear-to-r from-yellow-500 to-amber-600 px-4 py-2 text-xs font-bold text-black transition-transform hover:scale-105 sm:px-5 sm:py-2.5 sm:text-sm"
                 >
                   MUA VÉ
                 </Link>
