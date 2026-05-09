@@ -1,18 +1,18 @@
+import { User } from "./user";
+
 export interface LoginRequest {
     email: string;
     password: string;
 }
 
 export interface LoginResponse {
-    email:string
-    role:string
-    status:string
-    full_name:string
-    phone:string
-    gender:string
-    birth_date:string
+  success: boolean;
+  data: {
+    message: string;
     access_token: string;
     refresh_token: string;
+    user: User;
+  };
 }
 
 export interface RegisterRequest {

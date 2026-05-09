@@ -1,14 +1,15 @@
 "use client";
 
+import { Field, Form, Formik, type FormikHelpers } from "formik";
 import Cookies from "js-cookie";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { getRoleHomePath, type AppRole } from "@/src/lib/auth-shared";
+import { ArrowRightIcon, CoinIcon, EyeIcon, EyeOffIcon, GoogleIcon, LockIcon, MailIcon, TicketIcon } from "@/public/icons/AuthIcons";
+import type { LoginRequest } from "@/src/interface/auth";
+import { getRoleHomePath } from "@/src/lib/auth-shared";
 
-type IconProps = {
-  className?: string;
-};
+type LoginErrors = Partial<Record<keyof LoginRequest, string>>;
 
 type SignInPageProps = {
   compact?: boolean;
@@ -16,132 +17,43 @@ type SignInPageProps = {
   onSwitchMode?: (mode: "signin" | "signup") => void;
 };
 
-function MailIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-      />
-    </svg>
-  );
-}
+const initialSignInValues: LoginRequest = {
+  email: "",
+  password: "",
+};
 
-function LockIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-      />
-    </svg>
-  );
-}
+function validateSignIn(values: LoginRequest): LoginErrors {
+  const errors: LoginErrors = {};
+  const email = values.email.trim();
 
-function EyeIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-      />
-    </svg>
-  );
-}
+  if (!email) {
+    errors.email = "Vui lòng nhập email.";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = "Email không hợp lệ.";
+  }
 
-function EyeOffIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M3 3l18 18M10.584 10.587A2 2 0 0012 15a2 2 0 001.414-.586M9.88 5.09A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a9.972 9.972 0 01-4.09 5.136M6.228 6.228A9.965 9.965 0 002.458 12c1.274 4.057 5.065 7 9.542 7a9.96 9.96 0 005.772-1.772M9.878 9.879a3 3 0 104.243 4.243"
-      />
-    </svg>
-  );
-}
+  if (!values.password) {
+    errors.password = "Vui lòng nhập mật khẩu.";
+  } else if (values.password.length < 6) {
+    errors.password = "Mật khẩu tối thiểu 6 ký tự.";
+  }
 
-function ArrowRightIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-    </svg>
-  );
-}
-
-function GoogleIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <path
-        fill="#FFC107"
-        d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.2 36 24 36c-6.627 0-12-5.373-12-12S17.373 12 24 12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.052 6.053 29.277 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917Z"
-      />
-      <path
-        fill="#FF3D00"
-        d="M6.306 14.691 12.88 19.51C14.658 15.108 18.968 12 24 12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.052 6.053 29.277 4 24 4c-7.682 0-14.417 4.337-17.694 10.691Z"
-      />
-      <path
-        fill="#4CAF50"
-        d="M24 44c5.175 0 9.867-1.977 13.422-5.192l-6.19-5.238C29.157 35.148 26.676 36 24 36c-5.18 0-9.626-3.317-11.287-7.943l-6.525 5.027C9.429 39.556 16.169 44 24 44Z"
-      />
-      <path
-        fill="#1976D2"
-        d="M43.611 20.083H42V20H24v8h11.303a12.05 12.05 0 0 1-4.073 5.57h.002l6.19 5.238C36.984 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z"
-      />
-    </svg>
-  );
-}
-
-function CoinIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function TicketIcon({ className }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
-      />
-    </svg>
-  );
+  return errors;
 }
 
 export default function SignInPage({ compact = false, onClose, onSwitchMode }: SignInPageProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
-  function handleQuickRoleLogin(role: AppRole) {
-    Cookies.set("ROLE", role);
+  function handleSignInSubmit(_values: LoginRequest, actions: FormikHelpers<LoginRequest>) {
+    actions.setSubmitting(false);
+  }
 
-    if (role === "user") {
-      Cookies.set("USER_NAME", "Khach hang");
-      Cookies.set("USER_POINTS", "1250");
-      Cookies.set("MEMBERSHIP_LEVEL", "Member");
-    } else {
-      Cookies.remove("USER_NAME");
-      Cookies.remove("USER_POINTS");
-      Cookies.remove("MEMBERSHIP_LEVEL");
-    }
+  function handleQuickRoleLogin(role: "staff" | "admin") {
+    Cookies.set("ROLE", role);
+    Cookies.remove("USER_NAME");
+    Cookies.remove("USER_POINTS");
+    Cookies.remove("MEMBERSHIP_LEVEL");
 
     router.push(getRoleHomePath(role));
     router.refresh();
@@ -204,7 +116,9 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
             </div>
 
             <div className="flex-1 p-5 sm:p-7">
-              <form className="space-y-5" onSubmit={(event) => event.preventDefault()}>
+              <Formik<LoginRequest> initialValues={initialSignInValues} validate={validateSignIn} onSubmit={handleSignInSubmit}>
+                {({ errors, isSubmitting, touched }) => (
+                  <Form className="space-y-5">
                 <div>
                   <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-300">
                     Email
@@ -213,13 +127,17 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
                     <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                       <MailIcon className="h-5 w-5" />
                     </span>
-                    <input
+                    <Field
                       id="email"
+                      name="email"
                       type="email"
                       placeholder="your@email.com"
                       className="w-full rounded-xl border border-gray-700 bg-gray-800/60 py-3 pl-12 pr-4 text-white placeholder:text-gray-500 transition-all outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
                     />
                   </div>
+                  {touched.email && errors.email ? (
+                    <p className="mt-2 text-xs font-medium text-red-400">{errors.email}</p>
+                  ) : null}
                 </div>
 
                 <div>
@@ -230,8 +148,9 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
                     <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                       <LockIcon className="h-5 w-5" />
                     </span>
-                    <input
+                    <Field
                       id="password"
+                      name="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       className="w-full rounded-xl border border-gray-700 bg-gray-800/60 py-3 pl-12 pr-12 text-white placeholder:text-gray-500 transition-all outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
@@ -245,6 +164,9 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
                       {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                     </button>
                   </div>
+                  {touched.password && errors.password ? (
+                    <p className="mt-2 text-xs font-medium text-red-400">{errors.password}</p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -263,23 +185,16 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
 
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3.5 font-bold text-black transition-all hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400 active:scale-[0.98]"
+                  disabled={isSubmitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3.5 font-bold text-black transition-all hover:cursor-pointer hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <span>Đăng nhập</span>
                   <ArrowRightIcon className="h-5 w-5" />
                 </button>
 
                 <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Đăng nhập nhanh theo vai trò</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickRoleLogin("user")}
-                      className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm font-bold text-yellow-400 transition-all hover:scale-[1.02] hover:bg-yellow-500/15"
-                    >
-                      Vào User
-                    </button>
-
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Đăng nhập nhanh nội bộ</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => handleQuickRoleLogin("staff")}
@@ -296,6 +211,9 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
                       Vào Admin
                     </button>
                   </div>
+                  <p className="mt-3 text-xs leading-5 text-gray-500">
+                    Luồng đăng nhập người dùng thường đã bỏ mock để bạn nối API thật vào nút <span className="font-medium text-gray-300">Đăng nhập</span>.
+                  </p>
                 </div>
 
                 <div className="relative my-6">
@@ -319,31 +237,10 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
                       </span>
                     </span>
                   </button>
-
-                  <p className="text-center text-xs leading-5 text-gray-500">
-                    Frontend sẽ gọi trực tiếp BE qua endpoint{" "}
-                    <span className="font-mono text-gray-300">/api/v1/auth/google/login</span>
-                  </p>
                 </div>
-
-                <div className="rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl" aria-hidden="true">
-                      👨‍💼
-                    </span>
-                    <div>
-                      <p className="mb-1 text-sm font-medium text-blue-400">Đăng nhập dành cho nhân viên?</p>
-                      <p className="text-xs leading-5 text-gray-400">
-                        Sử dụng email có chứa &quot;<span className="font-mono text-yellow-500">staff</span>&quot;{" "}
-                        để đăng nhập vào Staff Portal.
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        VD: <span className="font-mono text-gray-400">staff@cinepro.vn</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </form>
+              </Form>
+                )}
+              </Formik>
             </div>
 
             <div className="border-t border-white/8 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 p-4">
