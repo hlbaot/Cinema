@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Particles from "@/public/uiux/Particles";
-import { dataMovie } from "@/src/data/movie";
+import { useMovies } from "@/src/hooks/useMovies";
 
 const TIME_ZONE = "Asia/Ho_Chi_Minh";
 const WEEKDAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -79,8 +79,8 @@ function buildDateItems(today: Date) {
   });
 }
 
-function getShowtimesForMovie(movieId: number, dateIso: string) {
-  const seed = Number(dateIso.slice(-2)) + movieId;
+function getShowtimesForMovie(movieId: string, dateIso: string) {
+  const seed = (movieId.length || 0) + Number(dateIso.slice(-2));
   const baseSets = [
     ["09:15", "12:30", "15:45", "19:00"],
     ["10:00", "13:20", "16:40", "20:10"],
@@ -92,6 +92,7 @@ function getShowtimesForMovie(movieId: number, dateIso: string) {
 }
 
 export default function SchedulePage() {
+  const { movies, loading } = useMovies();
   const [searchValue, setSearchValue] = useState("");
   const [today, setToday] = useState(() => {
     const { year, month, day } = getTodayParts();
@@ -124,10 +125,18 @@ export default function SchedulePage() {
   const visibleMovies = useMemo(() => {
     const normalizedSearch = searchValue.trim().toLowerCase();
 
-    return dataMovie
+    return movies
       .filter((movie) => movie.status === "Đang chiếu")
       .filter((movie) => movie.title.toLowerCase().includes(normalizedSearch));
-  }, [searchValue]);
+  }, [searchValue, movies]);
+
+  if (loading) {
+    return (
+      <section className="relative min-h-screen items-center justify-center flex bg-black text-white">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent" />
+      </section>
+    );
+  }
 
   return (
     <section className="relative min-h-screen overflow-hidden bg-black text-white">

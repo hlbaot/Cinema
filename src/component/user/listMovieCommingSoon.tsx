@@ -1,6 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { dataMovie } from "@/src/data/movie";
+import { useMovies, type MappedMovie } from "@/src/hooks/useMovies";
 import { getMovieDetailHref } from "@/src/lib/movie-navigation";
 
 function StarIcon({ className }: { className?: string }) {
@@ -37,7 +39,16 @@ function getShortDescription(description: string, maxLength = 92) {
 }
 
 export default function ListMovieCommingSoon() {
-  const comingSoonMovies = dataMovie.filter((movie) => movie.status === "Sắp ra mắt");
+  const { movies, loading } = useMovies();
+  const comingSoonMovies = movies.filter((movie) => movie.status === "Sắp ra mắt");
+
+  if (loading) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 text-center text-gray-400">
+        Đang tải...
+      </div>
+    );
+  }
 
   if (comingSoonMovies.length === 0) {
     return null;
@@ -61,7 +72,7 @@ export default function ListMovieCommingSoon() {
       </div>
 
       <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-4 md:gap-y-7 lg:gap-x-5">
-        {comingSoonMovies.map((movie) => (
+        {comingSoonMovies.map((movie: MappedMovie) => (
           <article key={movie.id} className="group relative min-w-0 cursor-pointer">
             <Link
               href={getMovieDetailHref(movie.id)}

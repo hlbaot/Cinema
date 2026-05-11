@@ -1,4 +1,4 @@
-export function getMovieDetailHref(movieId: number, hash?: string) {
+export function getMovieDetailHref(movieId: string | number, hash?: string) {
   const basePath = `/phim/${movieId}`
 
   return hash ? `${basePath}#${hash}` : basePath

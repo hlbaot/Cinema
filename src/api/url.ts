@@ -1,7 +1,7 @@
-const apiUrl = process.env.API_URL?.trim();
+const apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || "http://10.36.120.153:5050"; // Fallback to provided IP
 
-if (!apiUrl) {
-  throw new Error("Missing API_URL in environment variables");
+if (!process.env.NEXT_PUBLIC_API_URL) {
+  console.warn("Warning: NEXT_PUBLIC_API_URL is missing, using fallback.");
 }
 
 export const API_URL = apiUrl;

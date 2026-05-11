@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { useMovies, type MappedMovie } from '@/src/hooks/useMovies'
 import { getMovieDetailHref } from '@/src/lib/movie-navigation'
-import { dataMovie } from '@/src/data/movie'
 
 function StarIcon() {
   return (
@@ -121,33 +121,36 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
 
 const releaseDates = ['2022-12-16', '2018-04-27', '2026-07-31', '2026-02-17']
 const ratings = ['96%', '94%', '91%', '93%']
-const videoStylesByMovieId: Record<number, { scale: string; objectPosition: string }> = {
-  1: { scale: 'scale-[1.18]', objectPosition: 'center center' },
-  2: { scale: 'scale-[1.22]', objectPosition: 'center center' },
-  3: { scale: 'scale-[1.42]', objectPosition: 'center 28%' },
-  4: { scale: 'scale-[1.2]', objectPosition: 'center center' },
+const videoStylesByMovieId: Record<string, { scale: string; objectPosition: string }> = {
+  "1": { scale: 'scale-[1.18]', objectPosition: 'center center' },
+  "2": { scale: 'scale-[1.22]', objectPosition: 'center center' },
+  "3": { scale: 'scale-[1.42]', objectPosition: 'center 28%' },
+  "4": { scale: 'scale-[1.2]', objectPosition: 'center center' },
 }
 
 export default function Hero() {
+  const { movies, loading } = useMovies();
   const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
-    if (dataMovie.length <= 1) {
+    if (movies.length <= 1) {
       return
     }
 
     const interval = window.setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % dataMovie.length)
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % movies.length)
     }, 5000)
 
     return () => window.clearInterval(interval)
-  }, [])
+  }, [movies.length])
 
-  if (dataMovie.length === 0) {
-    return null
+  if (loading || movies.length === 0) {
+    return (
+      <div className="relative -mt-16 min-h-[calc(100vh+4rem)] w-full bg-neutral-900 animate-pulse lg:-mt-20 lg:min-h-[calc(100vh+5rem)]" />
+    );
   }
 
-  const currentMovie = dataMovie[currentIndex]
+  const currentMovie = movies[currentIndex]
   const statusLabel = currentMovie.status.toUpperCase()
   const releaseDate = releaseDates[currentIndex] ?? 'Dang cap nhat'
   const rating = ratings[currentIndex] ?? '95%'
@@ -158,8 +161,11 @@ export default function Hero() {
 
   const goToSlide = (index: number) => setCurrentIndex(index)
   const goToPrevious = () =>
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + dataMovie.length) % dataMovie.length)
-  const goToNext = () => setCurrentIndex((prevIndex) => (prevIndex + 1) % dataMovie.length)
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + movies.length) % movies.length)
+  const goToNext = () => setCurrentIndex((prevIndex) => (prevIndex + 1) % movies.length)
+
+  const isYouTube = currentMovie.trailer.includes('youtube.com') || currentMovie.trailer.includes('youtu.be');
+  const youtubeId = isYouTube ? (currentMovie.trailer.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/) || [])[1] : null;
 
   return (
     <div className="relative -mt-16 min-h-[calc(100vh+4rem)] w-full overflow-hidden lg:-mt-20 lg:min-h-[calc(100vh+5rem)]">
@@ -168,18 +174,28 @@ export default function Hero() {
         style={{ backgroundImage: `url(${currentMovie.poster})` }}
       />
       <div className="absolute inset-0 overflow-hidden">
-        <video
-          key={currentMovie.id}
-          className={`absolute top-1/2 left-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover ${videoStyle.scale}`}
-          src={currentMovie.trailer}
-          poster={currentMovie.poster}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          style={{ objectPosition: videoStyle.objectPosition }}
-        />
+        {isYouTube && youtubeId ? (
+          <iframe
+            key={youtubeId}
+            className={`absolute top-1/2 left-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover ${videoStyle.scale} pointer-events-none border-none`}
+            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}&controls=0&showinfo=0&autohide=1&modestbranding=1&rel=0&enablejsapi=1`}
+            allow="autoplay; encrypted-media"
+            title={currentMovie.title}
+          />
+        ) : (
+          <video
+            key={currentMovie.id}
+            className={`absolute top-1/2 left-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover ${videoStyle.scale}`}
+            src={currentMovie.trailer}
+            poster={currentMovie.poster}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            style={{ objectPosition: videoStyle.objectPosition }}
+          />
+        )}
       </div>
 
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
@@ -275,7 +291,7 @@ export default function Hero() {
       <div className="absolute right-0 bottom-8 left-0 z-10 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-7xl justify-center">
           <div className="flex flex-wrap items-center gap-3">
-            {dataMovie.map((movie, index) => (
+            {movies.map((movie: MappedMovie, index: number) => (
               <button
                 key={movie.id}
                 type="button"
