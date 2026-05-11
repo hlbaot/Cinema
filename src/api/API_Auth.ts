@@ -28,3 +28,5 @@ export const API_reset_password = async (reset_password_token: string, password:
     const res = await axios.put(`${API_URL}/api/v1/auth/reset-password`, { reset_password_token, password });
     return res.data;
 };
+
+export const API_GG = `${API_URL}/api/v1/auth/google/login`

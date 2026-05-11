@@ -57,7 +57,7 @@ export default function AdminOverviewPage() {
         {overviewStats.map((stat) => (
           <article
             key={stat.title}
-            className={`relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${stat.colorClass} p-3 shadow-[0_12px_28px_rgba(0,0,0,0.22)] md:p-4`}
+            className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-linear-to-br ${stat.colorClass} p-8 shadow-[0_18px_40px_rgba(0,0,0,0.25)]`}
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.22),transparent_34%)]" />
             <div className="relative flex min-w-0 items-center justify-between gap-3">

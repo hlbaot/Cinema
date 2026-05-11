@@ -78,7 +78,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
       className={`auth-modal-shell relative isolate overflow-x-hidden text-white ${compact ? "min-h-0 bg-transparent" : "min-h-screen bg-transparent"}`}
     >
       <div className={`relative z-10 flex items-center justify-center ${compact ? "px-0 py-0" : "min-h-screen px-4 py-12 sm:px-6"}`}>
-        <div className="w-full max-w-[35rem]">
+        <div className="w-full max-w-140">
           {!compact ? (
             <div className="mb-8 text-center">
               <Link href="/" className="inline-block">
@@ -92,7 +92,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
           ) : null}
 
           <div
-            className={`flex flex-col overflow-hidden border border-white/8 bg-gray-900/75 backdrop-blur-2xl ${compact ? "rounded-[1.75rem] shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : "min-h-[44rem] rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"}`}
+            className={`flex flex-col overflow-hidden border border-white/8 bg-gray-900/75 backdrop-blur-2xl ${compact ? "rounded-[1.75rem] shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : "min-h-176 rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"}`}
           >
             <div className="flex border-b border-white/8 text-sm sm:text-base">
               <Link
@@ -112,7 +112,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
               </Link>
               <button type="button" className="relative flex-1 py-4 text-center font-semibold text-yellow-500">
                 Đăng ký
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-500 to-amber-500" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-linear-to-r from-yellow-500 to-amber-500" />
               </button>
               {compact ? (
                 <button
@@ -300,7 +300,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3.5 font-bold text-black transition-all hover:cursor-pointer hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-yellow-500 to-amber-500 py-3.5 font-bold text-black transition-all hover:cursor-pointer hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       <span>Tạo tài khoản</span>
                       <UserPlusIcon className="h-5 w-5" />
@@ -310,7 +310,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
               </Formik>
             </div>
 
-            <div className="border-t border-white/8 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 p-4">
+            <div className="border-t border-white/8 bg-linear-to-r from-yellow-500/10 to-amber-500/10 p-4">
               <div className="flex flex-col items-center justify-center gap-3 text-sm text-gray-400 sm:flex-row sm:gap-6">
                 <div className="flex items-center gap-2">
                   <CoinIcon className="h-5 w-5 text-yellow-500" />

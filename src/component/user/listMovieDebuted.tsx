@@ -76,7 +76,7 @@ export default function ListMovieDebuted() {
               className="absolute inset-0 z-10 rounded-lg"
             />
 
-            <div className="relative mb-2.5 aspect-[2/3] overflow-hidden rounded-lg">
+            <div className="relative mb-2.5 aspect-2/3 overflow-hidden rounded-lg">
               <Image
                 src={movie.poster}
                 alt={movie.title}
@@ -86,7 +86,7 @@ export default function ListMovieDebuted() {
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/15 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
               <div className="absolute top-3 left-3 rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
                 {getMovieBadge(movie.status)}

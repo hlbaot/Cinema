@@ -197,7 +197,7 @@ export default function SchedulePage() {
                 <div className="flex flex-col lg:flex-row">
                   <div className="relative h-56 w-full shrink-0 overflow-hidden lg:h-auto lg:w-[220px]">
                     <Image src={movie.poster} alt={movie.title} fill className="object-cover" sizes="250px" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent lg:bg-gradient-to-r" />
+                    <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-transparent to-transparent lg:bg-linear-to-r" />
                   </div>
 
                   <div className="flex flex-1 flex-col p-5">
@@ -242,7 +242,7 @@ export default function SchedulePage() {
                     <div className="mt-5 flex flex-wrap gap-3">
                       <Link
                         href="/datVe"
-                        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-transform hover:scale-[1.02]"
+                        className="inline-flex items-center justify-center rounded-full bg-linear-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-transform hover:scale-[1.02]"
                       >
                         Đặt vé ngay
                       </Link>

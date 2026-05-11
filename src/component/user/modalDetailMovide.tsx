@@ -69,8 +69,8 @@ export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
             className="object-cover object-center scale-105"
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/75 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-r from-black via-black/75 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-black via-black/35 to-transparent" />
         <div className="absolute inset-0 bg-black/35" />
 
         <div className="absolute inset-0 flex items-end">
@@ -159,7 +159,7 @@ export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
 
                   <a
                     href="#showtimes"
-                    className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-400 px-6 py-4 font-bold text-black transition-all hover:from-yellow-400 hover:to-yellow-300 sm:px-8"
+                    className="flex items-center gap-3 rounded-xl bg-linear-to-r from-yellow-500 to-yellow-400 px-6 py-4 font-bold text-black transition-all hover:from-yellow-400 hover:to-yellow-300 sm:px-8"
                   >
                     <span>Mua Vé Ngay</span>
                     <ChevronRight className="h-5 w-5" />
@@ -219,7 +219,7 @@ export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
                       onClick={() => setSelectedDate(group.date)}
                       className={`flex min-w-[74px] flex-col items-center rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                         isActive
-                          ? 'bg-gradient-to-b from-yellow-500 to-yellow-600 text-black shadow-lg shadow-yellow-500/25'
+                          ? 'bg-linear-to-b from-yellow-500 to-yellow-600 text-black shadow-lg shadow-yellow-500/25'
                           : 'border border-zinc-700 bg-zinc-800/50 text-gray-400 hover:bg-zinc-700 hover:text-white'
                       }`}
                     >
