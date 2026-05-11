@@ -2,19 +2,24 @@
 
 import { useState } from "react";
 
-export type UserRoleOption = {
+export type UserRoleOption<TValue extends string = string> = {
   label: string;
-  value: string;
+  value: TValue;
 };
 
-type UserRoleDropdownProps = {
+type UserRoleDropdownProps<TValue extends string = string> = {
   className?: string;
-  onChange: (value: string) => void;
-  options: UserRoleOption[];
-  value: string;
+  onChange: (value: TValue) => void;
+  options: readonly UserRoleOption<TValue>[];
+  value: TValue;
 };
 
-export default function UserRoleDropdown({ className = "", onChange, options, value }: UserRoleDropdownProps) {
+export default function UserRoleDropdown<TValue extends string = string>({
+  className = "",
+  onChange,
+  options,
+  value,
+}: UserRoleDropdownProps<TValue>) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value) ?? options[0];
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AdminUserInfo } from "@/src/app/admin/qlyUser/page";
-import UserRoleDropdown from "@/src/component/admin/userRoleDropdown";
+import UserRoleDropdown, { type UserRoleOption } from "@/src/component/admin/userRoleDropdown";
 
 type ModalChinhSuaUserProps = {
   onClose: () => void;
@@ -10,14 +10,16 @@ type ModalChinhSuaUserProps = {
   user: AdminUserInfo | null;
 };
 
+type UserRole = AdminUserInfo["role"];
+
 const userRoleOptions = [
   { label: "Khách hàng", value: "customer" },
   { label: "Nhân viên", value: "staff" },
   { label: "Admin", value: "admin" },
-];
+] satisfies UserRoleOption<UserRole>[];
 
 export default function ModalChinhSuaUser({ onClose, open, user }: ModalChinhSuaUserProps) {
-  const [role, setRole] = useState(user?.role ?? "customer");
+  const [role, setRole] = useState<UserRole>(user?.role ?? "customer");
 
   if (!open || !user) {
     return null;
