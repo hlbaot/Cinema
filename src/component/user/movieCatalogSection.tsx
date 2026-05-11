@@ -9,8 +9,10 @@ import MovieFilterSection, {
   type MovieViewMode,
 } from "@/src/component/user/movieFilterSection";
 import MovieListSection from "@/src/component/user/movieListSection";
+import { useMovies } from "@/src/hooks/useMovies";
 
 export default function MovieCatalogSection() {
+  const { movies } = useMovies();
   const [activeTab, setActiveTab] = useState<MovieTabKey>("showing");
   const [viewMode, setViewMode] = useState<MovieViewMode>("grid");
   const [sortBy, setSortBy] = useState<MovieSortKey>("newest");
@@ -20,6 +22,7 @@ export default function MovieCatalogSection() {
   return (
     <>
       <MovieFilterSection
+        movies={movies}
         activeTab={activeTab}
         onActiveTabChange={setActiveTab}
         selectedGenres={selectedGenres}

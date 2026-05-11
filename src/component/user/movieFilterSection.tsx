@@ -1,6 +1,6 @@
 "use client";
 
-import { dataMovie } from "@/src/data/movie";
+import { type MappedMovie } from "@/src/hooks/useMovies";
 
 export type MovieTabKey = "showing" | "coming";
 export type MovieViewMode = "grid" | "list";
@@ -31,13 +31,6 @@ const basePrimaryGenres = [
 
 const baseExtraGenres = ["Horror", "Musical", "Romance", "Sci-Fi", "Thriller", "History"];
 const ageRatings = [ALL_GENRE_LABEL, "Ph\u1ed5 bi\u1ebfn", "13+", "16+", "18+"];
-
-const mergedGenres = Array.from(
-  new Set([...basePrimaryGenres, ...baseExtraGenres, ...dataMovie.flatMap((movie) => movie.genres)]),
-);
-
-const primaryGenres = [ALL_GENRE_LABEL, ...mergedGenres.slice(0, 7)];
-const extraGenres = mergedGenres.slice(7);
 
 function GridIcon() {
   return (
@@ -100,6 +93,7 @@ function toggleGenres(label: string, current: string[]) {
 }
 
 type MovieFilterSectionProps = {
+  movies: MappedMovie[];
   activeTab: MovieTabKey;
   onActiveTabChange: (tab: MovieTabKey) => void;
   selectedGenres: string[];
@@ -113,6 +107,7 @@ type MovieFilterSectionProps = {
 };
 
 export default function MovieFilterSection({
+  movies,
   activeTab,
   onActiveTabChange,
   selectedGenres,
@@ -124,6 +119,13 @@ export default function MovieFilterSection({
   sortBy,
   onSortByChange,
 }: MovieFilterSectionProps) {
+  const mergedGenres = Array.from(
+    new Set([...basePrimaryGenres, ...baseExtraGenres, ...movies.flatMap((movie) => movie.genres)]),
+  );
+
+  const primaryGenres = [ALL_GENRE_LABEL, ...mergedGenres.slice(0, 7)];
+  const extraGenres = mergedGenres.slice(7);
+
   const hasExtraGenreSelected = selectedGenres.some((genre) => extraGenres.includes(genre));
 
   return (

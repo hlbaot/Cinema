@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { dataMovie, type Movie } from "@/src/data/movie";
+import { useMovies, type MappedMovie } from "@/src/hooks/useMovies";
 import { getMovieDetailHref } from "@/src/lib/movie-navigation";
 
 import {
@@ -13,9 +13,17 @@ import {
   type MovieViewMode,
 } from "@/src/component/user/movieFilterSection";
 
-const showingStatus: Movie["status"] = "\u0110ang chi\u1ebfu";
-const comingStatus: Movie["status"] = "S\u1eafp ra m\u1eaft";
- 
+const showingStatus = "Đang chiếu";
+const comingStatus = "Sắp ra mắt";
+
+const mapAgeRating = (rating: string) => {
+  if (rating === "T18") return "18+";
+  if (rating === "T16") return "16+";
+  if (rating === "T13") return "13+";
+  if (rating === "P") return "P";
+  return rating;
+};
+
 function PlayIcon() {
   return (
     <svg className="ml-1 h-8 w-8 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -58,44 +66,47 @@ function ChevronDownIcon() {
 }
 
 function getAgeBadgeClass(ageRating: string) {
-  if (ageRating === "18+") {
+  if (ageRating === "18+" || ageRating === "T18") {
     return "bg-red-500";
   }
 
-  if (ageRating === "16+") {
+  if (ageRating === "16+" || ageRating === "T16") {
     return "bg-orange-500";
   }
 
-  if (ageRating === "13+") {
+  if (ageRating === "13+" || ageRating === "T13") {
     return "bg-yellow-500";
   }
 
   return "bg-green-500";
 }
 
-function getStatusChipClass(status: Movie["status"]) {
+function getStatusChipClass(status: string) {
   return status === showingStatus
     ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"
     : "border-sky-500/20 bg-sky-500/10 text-sky-300";
 }
 
-function movieMatchesTab(movie: Movie, activeTab: MovieTabKey) {
+function movieMatchesTab(movie: MappedMovie, activeTab: MovieTabKey) {
   return activeTab === "showing" ? movie.status === showingStatus : movie.status === comingStatus;
 }
 
-function movieMatchesRating(movie: Movie, selectedRating: string) {
+function movieMatchesRating(movie: MappedMovie, selectedRating: string) {
   if (selectedRating === ALL_GENRE_LABEL) {
     return true;
   }
 
-  if (selectedRating === "Ph\u1ed5 bi\u1ebfn") {
-    return !["13+", "16+", "18+"].includes(movie.age_rating);
+  const movieRating = mapAgeRating(movie.age_rating);
+  const targetRating = mapAgeRating(selectedRating);
+
+  if (targetRating === "Phổ biến") {
+    return !["13+", "16+", "18+"].includes(movieRating);
   }
 
-  return movie.age_rating === selectedRating;
+  return movieRating === targetRating;
 }
 
-function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
+function MovieGridCard({ movie, index }: { movie: MappedMovie; index: number }) {
   return (
     <article className="group relative cursor-pointer" style={{ animationDelay: `${index * 50}ms` }}>
       <Link
@@ -126,7 +137,7 @@ function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
 
         {typeof movie.score === "number" && (
           <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/80 px-2 py-1 backdrop-blur-sm">
-            <span className="text-yellow-500">{"\u2b50"}</span>
+            <span className="text-yellow-500">{"⭐"}</span>
             <span className="text-xs font-semibold text-white">{movie.score}%</span>
           </div>
         )}
@@ -153,7 +164,7 @@ function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
             href={getMovieDetailHref(movie.id, "showtimes")}
             className="relative z-20 w-full rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 py-2 text-center text-sm font-bold text-black transition-all hover:scale-105 hover:from-yellow-400 hover:to-amber-400"
           >
-            {"MUA V\u00c9"}
+            {"MUA VÉ"}
           </Link>
         </div>
       </div>
@@ -171,14 +182,14 @@ function MovieGridCard({ movie, index }: { movie: Movie; index: number }) {
           {movie.title}
         </h3>
         <p className="text-xs text-gray-500">
-          {movie.minutes} {"ph\u00fat"}
+          {movie.minutes} {"phút"}
         </p>
       </div>
     </article>
   );
 }
 
-function MovieListRow({ movie }: { movie: Movie }) {
+function MovieListRow({ movie }: { movie: MappedMovie }) {
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-[#202B3D] bg-[#0A101B] transition-all duration-300 hover:border-yellow-500/30 hover:shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
       <Link
@@ -220,7 +231,7 @@ function MovieListRow({ movie }: { movie: Movie }) {
 
                 {typeof movie.score === "number" && (
                   <span className="rounded-full bg-black/45 px-3 py-1 text-xs font-semibold text-white">
-                    {"\u2b50"} {movie.score}%
+                    {"⭐"} {movie.score}%
                   </span>
                 )}
               </div>
@@ -235,7 +246,7 @@ function MovieListRow({ movie }: { movie: Movie }) {
             <span className="inline-flex items-center gap-2">
               <ClockIcon />
               <span>
-                {movie.minutes} {"ph\u00fat"}
+                {movie.minutes} {"phút"}
               </span>
             </span>
             <span className="text-gray-600">•</span>
@@ -265,7 +276,7 @@ function MovieListRow({ movie }: { movie: Movie }) {
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-7 py-3 font-bold text-black transition-all hover:brightness-105"
             >
               <TicketIcon />
-              <span>{"MUA V\u00c9 NGAY"}</span>
+              <span>{"MUA VÉ NGAY"}</span>
             </Link>
 
             <a
@@ -299,10 +310,12 @@ export default function MovieListSection({
   selectedGenres,
   selectedRating,
 }: MovieListSectionProps) {
+  const { movies, loading } = useMovies();
+
   const hasGenreFilter =
     selectedGenres.length > 0 && !selectedGenres.includes(ALL_GENRE_LABEL);
 
-  const filteredMovies = dataMovie.filter((movie) => {
+  const filteredMovies = movies.filter((movie) => {
     if (!movieMatchesTab(movie, activeTab)) {
       return false;
     }
@@ -324,7 +337,7 @@ export default function MovieListSection({
     }
 
     if (sortBy === "name") {
-      return leftMovie.title.localeCompare(rightMovie.title, "vi", {
+      return leftMovie.title.localeCompare(leftMovie.title, "vi", {
         sensitivity: "base",
       });
     }
@@ -332,12 +345,21 @@ export default function MovieListSection({
     return 0;
   });
 
+  if (loading) {
+    return (
+      <section className="w-full bg-black py-20 text-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent"></div>
+        <p className="mt-4 text-gray-400">Đang tải danh sách phim...</p>
+      </section>
+    );
+  }
+
   return (
     <section className="w-full bg-black">
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <p className="text-gray-400">
-            {"T\u00ecm th\u1ea5y"}{" "}
+            {"Tìm thấy"}{" "}
             <span className="font-semibold text-yellow-500">{visibleMovies.length}</span> phim
           </p>
         </div>
@@ -358,7 +380,7 @@ export default function MovieListSection({
           )
         ) : (
           <div className="rounded-2xl border border-gray-800 bg-gray-900/40 px-6 py-12 text-center text-gray-400">
-            {"Kh\u00f4ng c\u00f3 phim ph\u00f9 h\u1ee3p v\u1edbi b\u1ed9 l\u1ecdc hi\u1ec7n t\u1ea1i."}
+            {"Không có phim phù hợp với bộ lọc hiện tại."}
           </div>
         )}
 
@@ -367,7 +389,7 @@ export default function MovieListSection({
             type="button"
             className="rounded-full border border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900 px-8 py-3 font-medium text-white transition-all hover:border-yellow-500/50 hover:shadow-lg hover:shadow-yellow-500/10"
           >
-            {"Xem th\u00eam phim"}
+            {"Xem thêm phim"}
             <ChevronDownIcon />
           </button>
         </div>
