@@ -1,9 +1,19 @@
-
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import Cookies from 'js-cookie'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  API_GenerateDraftShowtimes,
+  API_GetDraftShowtimes,
+  API_GetShowtimeFormats,
+  API_PublishAllShowtimeDrafts,
+  API_PublishShowtimeDraft,
+  type ShowtimeDto,
+  type ShowtimeFormatOption,
+} from '@/src/api/API_Showtime'
+import { getApiErrorMessage } from '@/src/lib/auth-client'
 
-type ShowtimeStatus = 'scheduled' | 'ongoing' | 'ended' | 'cancelled'
+type ShowtimeStatus = 'draft' | 'scheduled' | 'ongoing' | 'ended' | 'cancelled'
 
 interface ScheduleRow {
   id: string
@@ -19,6 +29,7 @@ interface ScheduleRow {
 }
 
 const STATUS_CONFIG: Record<ShowtimeStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
+  draft: { label: 'Nháp', color: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/25', dot: 'bg-amber-400' },
   scheduled: { label: 'Sắp chiếu', color: 'text-violet-300', bg: 'bg-violet-500/10', border: 'border-violet-500/25', dot: 'bg-violet-400' },
   ongoing: { label: 'Đang chiếu', color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25', dot: 'bg-emerald-400' },
   ended: { label: 'Đã kết thúc', color: 'text-slate-400', bg: 'bg-white/5', border: 'border-white/10', dot: 'bg-slate-500' },
@@ -51,74 +62,6 @@ function formatYMD(d: Date): string {
 
 function formatDM(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function slotKey(date: string, start: string, room: string) {
-  return `${date}|${start}|${room}`
-}
-
-/**
- * Sinh thêm suất "tự động" cho tuần đang xem (không trùng phòng + giờ bắt đầu với lịch hiện có).
- * Khi nối API backend, thay phần này bằng gọi endpoint tạo lịch hàng loạt.
- */
-function generateAutoSlots(weekMonday: Date, existing: ScheduleRow[]): ScheduleRow[] {
-  const y = (offset: number) => formatYMD(addDays(weekMonday, offset))
-  const taken = new Set(existing.map(r => slotKey(r.date, r.start_time, r.room_name)))
-  const templates = [
-    { start: '11:00', end: '13:05' },
-    { start: '13:30', end: '15:35' },
-    { start: '16:00', end: '18:00' },
-    { start: '18:30', end: '20:40' },
-    { start: '21:15', end: '23:15' },
-  ]
-  const rooms = ['Phòng 1', 'Phòng 2', 'Phòng 3']
-  const titles = ['Suất tự động (sáng)', 'Suất tự động (chiều)', 'Suất tự động (tối)', 'Chiếu thử nghiệm', 'Block marketing']
-  const batchId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : String(Date.now())
-  const out: ScheduleRow[] = []
-  let n = 0
-  const maxPerClick = 24
-
-  for (let d = 0; d < 7; d++) {
-    const date = y(d)
-    for (const t of templates) {
-      if (out.length >= maxPerClick) return out
-      const room = rooms[n % rooms.length]
-      const k = slotKey(date, t.start, room)
-      if (taken.has(k)) continue
-      taken.add(k)
-      out.push({
-        id: `auto-${batchId}-${n}`,
-        movie_title: titles[n % titles.length],
-        room_name: room,
-        date,
-        start_time: t.start,
-        end_time: t.end,
-        format: n % 4 === 0 ? 'IMAX' : n % 2 === 0 ? '2D' : '3D',
-        booked: Math.min(75, (n * 7) % 80),
-        capacity: 80,
-        status: 'scheduled',
-      })
-      n++
-    }
-  }
-  return out
-}
-
-/** Dữ liệu mẫu gắn theo tuần (thứ 2 → chủ nhật) để demo lịch tuần */
-function buildMockForWeek(weekMonday: Date): ScheduleRow[] {
-  const y = (offset: number) => formatYMD(addDays(weekMonday, offset))
-  const stamp = weekMonday.getTime()
-  return [
-    { id: `${stamp}-a`, movie_title: 'ĐẠI TIỆC TRĂNG MÁU 8', room_name: 'Phòng 1', date: y(0), start_time: '10:00', end_time: '12:10', format: '2D', booked: 20, capacity: 80, status: 'ended' },
-    { id: `${stamp}-b`, movie_title: 'ĐẠI TIỆC TRĂNG MÁU 8', room_name: 'Phòng 1', date: y(0), start_time: '18:30', end_time: '20:40', format: '2D', booked: 45, capacity: 80, status: 'scheduled' },
-    { id: `${stamp}-c`, movie_title: 'PHÍ PHÔNG', room_name: 'Phòng 1', date: y(0), start_time: '21:10', end_time: '23:00', format: '2D', booked: 12, capacity: 80, status: 'scheduled' },
-    { id: `${stamp}-d`, movie_title: 'GẤU BOONIE', room_name: 'Phòng 2', date: y(1), start_time: '14:00', end_time: '15:55', format: '3D', booked: 60, capacity: 80, status: 'scheduled' },
-    { id: `${stamp}-e`, movie_title: 'IMAX Demo', room_name: 'IMAX', date: y(2), start_time: '09:30', end_time: '12:00', format: 'IMAX', booked: 180, capacity: 200, status: 'ongoing' },
-    { id: `${stamp}-f`, movie_title: 'Lilo & Stitch', room_name: 'Phòng 2', date: y(3), start_time: '16:00', end_time: '17:45', format: '2D', booked: 0, capacity: 96, status: 'cancelled' },
-    { id: `${stamp}-g`, movie_title: 'Paddington', room_name: 'Phòng 3', date: y(4), start_time: '19:00', end_time: '20:50', format: '2D', booked: 40, capacity: 100, status: 'scheduled' },
-    { id: `${stamp}-h`, movie_title: 'Marathon đêm', room_name: 'Phòng 1', date: y(5), start_time: '22:30', end_time: '01:00', format: '2D', booked: 5, capacity: 80, status: 'scheduled' },
-    { id: `${stamp}-i`, movie_title: 'Suất sớm CN', room_name: 'Phòng 2', date: y(6), start_time: '08:00', end_time: '09:45', format: '2D', booked: 15, capacity: 80, status: 'scheduled' },
-  ]
 }
 
 function SearchIcon() {
@@ -169,17 +112,113 @@ function FilterTab({ active, count, label, onClick }: { active: boolean; count: 
   )
 }
 
+function getString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback
+}
+
+function getNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeStatus(value: unknown): ShowtimeStatus {
+  const v = typeof value === 'string' ? value.toLowerCase() : ''
+  if (v === 'scheduled' || v === 'ongoing' || v === 'ended' || v === 'cancelled') return v
+  return 'draft'
+}
+
+function normalizeTime(raw: unknown): string {
+  const text = getString(raw)
+  const m = text.match(/\b\d{2}:\d{2}\b/)
+  return m?.[0] ?? (text ? text.slice(0, 5) : '--:--')
+}
+
+function normalizeDate(raw: unknown): string {
+  const text = getString(raw)
+  if (!text) return ''
+
+  const ymd = text.match(/\b\d{4}-\d{2}-\d{2}\b/)
+  if (ymd?.[0]) return ymd[0]
+
+  const dmy = text.match(/\b\d{2}\/\d{2}\/\d{4}\b/)
+  if (dmy?.[0]) {
+    const [day, month, year] = dmy[0].split('/')
+    return `${year}-${month}-${day}`
+  }
+
+  const parsed = new Date(text)
+  if (!Number.isNaN(parsed.getTime())) {
+    return formatYMD(parsed)
+  }
+
+  return text
+}
+
+function toScheduleRow(showtime: ShowtimeDto): ScheduleRow {
+  const row = showtime as Record<string, unknown>
+  const movie = (row.movie && typeof row.movie === 'object' ? row.movie : {}) as Record<string, unknown>
+  const room = (row.room && typeof row.room === 'object' ? row.room : {}) as Record<string, unknown>
+  const id = getString(row.id || row.showtime_id || row.session_id, `${Date.now()}-${Math.random()}`)
+  const date = normalizeDate(row.date || row.show_date || row.start_date)
+  const start = normalizeTime(row.start_time || row.startTime)
+  const end = normalizeTime(row.end_time || row.endTime)
+  const status = normalizeStatus(row.status)
+  const booked = getNumber(row.booked ?? row.booked_count ?? row.total_booked, 0)
+  const capacity = getNumber(row.capacity ?? row.total_seats ?? row.seat_capacity, 0)
+
+  return {
+    id,
+    movie_title: getString(row.movie_title || row.title || movie.title, 'Chưa có tên phim'),
+    room_name: getString(row.room_name || row.room_label || room.name, 'Chưa rõ phòng'),
+    date,
+    start_time: start,
+    end_time: end,
+    format: getString(row.format, '2d').toUpperCase(),
+    booked,
+    capacity,
+    status,
+  }
+}
+
 export default function AdminSchedulePage() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()))
   const [rows, setRows] = useState<ScheduleRow[]>([])
+  const [formats, setFormats] = useState<ShowtimeFormatOption[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | ShowtimeStatus>('all')
-  const [autoWorking, setAutoWorking] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [publishingAll, setPublishingAll] = useState(false)
+  const [publishingId, setPublishingId] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  const fetchDraftShowtimes = useCallback(async () => {
+    setLoading(true)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const response = await API_GetDraftShowtimes({ page: 1, limit: 300 }, accessToken)
+      setRows(response.data.showtimes.map(toScheduleRow))
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Không thể tải danh sách suất nháp.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    setRows(buildMockForWeek(weekStart))
-  }, [weekStart])
+    void fetchDraftShowtimes()
+  }, [fetchDraftShowtimes])
+
+  useEffect(() => {
+    async function fetchFormats() {
+      try {
+        const response = await API_GetShowtimeFormats()
+        setFormats(response)
+      } catch {
+        setFormats([])
+      }
+    }
+    void fetchFormats()
+  }, [])
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -210,11 +249,7 @@ export default function AdminSchedulePage() {
   }, [rows, search, filter])
 
   const weekYmds = useMemo(() => weekDays.map(d => d.ymd), [weekDays])
-
-  const inWeekFiltered = useMemo(
-    () => filtered.filter(r => weekYmds.includes(r.date)),
-    [filtered, weekYmds]
-  )
+  const inWeekFiltered = useMemo(() => filtered.filter(r => weekYmds.includes(r.date)), [filtered, weekYmds])
 
   const byDay = useMemo(() => {
     const map = new Map<string, ScheduleRow[]>()
@@ -223,15 +258,14 @@ export default function AdminSchedulePage() {
       const list = map.get(r.date)
       if (list) list.push(r)
     }
-    for (const list of map.values()) {
-      list.sort((a, b) => a.start_time.localeCompare(b.start_time))
-    }
+    for (const list of map.values()) list.sort((a, b) => a.start_time.localeCompare(b.start_time))
     return map
   }, [inWeekFiltered, weekYmds])
 
   const counts = useMemo(
     () => ({
       all: rows.length,
+      draft: rows.filter(r => r.status === 'draft').length,
       scheduled: rows.filter(r => r.status === 'scheduled').length,
       ongoing: rows.filter(r => r.status === 'ongoing').length,
       ended: rows.filter(r => r.status === 'ended').length,
@@ -243,6 +277,7 @@ export default function AdminSchedulePage() {
   const weekCounts = useMemo(
     () => ({
       all: inWeekFiltered.length,
+      draft: inWeekFiltered.filter(r => r.status === 'draft').length,
       scheduled: inWeekFiltered.filter(r => r.status === 'scheduled').length,
       ongoing: inWeekFiltered.filter(r => r.status === 'ongoing').length,
       ended: inWeekFiltered.filter(r => r.status === 'ended').length,
@@ -255,42 +290,72 @@ export default function AdminSchedulePage() {
   const goNextWeek = () => setWeekStart(d => addDays(d, 7))
   const goThisWeek = () => setWeekStart(startOfWeekMonday(new Date()))
 
-  const handleAutoSchedule = () => {
-    setAutoWorking(true)
-    setRows(prev => {
-      const extra = generateAutoSlots(weekStart, prev)
-      queueMicrotask(() => {
-        if (extra.length === 0) {
-          alert('Không còn khung giờ trống để thêm (trùng phòng + giờ với lịch hiện tại). Đổi tuần hoặc xóa bớt suất trước.')
-        } else {
-          alert(`Đã thêm ${extra.length} suất chiếu tự động cho tuần này.`)
-        }
-        setAutoWorking(false)
-      })
-      if (extra.length === 0) return prev
-      return [...prev, ...extra]
-    })
+  async function handlePublishAll() {
+    if (!confirm('Bạn chắc chắn muốn publish toàn bộ suất nháp?')) return
+    setPublishingAll(true)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const response = await API_PublishAllShowtimeDrafts(accessToken)
+      alert(response.data.message || `Đã publish ${response.data.total_published} suất nháp.`)
+      await fetchDraftShowtimes()
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Publish toàn bộ suất nháp thất bại.'))
+    } finally {
+      setPublishingAll(false)
+    }
+  }
+
+  async function handleGenerateDrafts() {
+    setGenerating(true)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const response = await API_GenerateDraftShowtimes({ page: 1, limit: 300 }, accessToken)
+      alert(response.data.message || 'Sinh lịch chiếu nháp thành công.')
+      setRows(response.data.showtimes.map(toScheduleRow))
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Sinh lịch chiếu nháp thất bại.'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handlePublishOne(showtimeId: string) {
+    setPublishingId(showtimeId)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const response = await API_PublishShowtimeDraft(showtimeId, accessToken)
+      alert(response.data.message || 'Publish suất nháp thành công.')
+      await fetchDraftShowtimes()
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Publish suất nháp thất bại.'))
+    } finally {
+      setPublishingId(null)
+    }
   }
 
   return (
-    <section className="space-y-6 text-white">
-      <div className="rounded-2xl border border-white/10 bg-[#0b1019] px-6 py-6 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+    <section className="space-y-4 text-white sm:space-y-6">
+      <div className="rounded-2xl border border-white/10 bg-[#0b1019] px-4 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.24)] sm:px-6 sm:py-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Quản lý lịch chiếu</h1>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Quản lý lịch chiếu</h1>
             <div className="mt-2 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
               <span>Dashboard</span>
               <span>/</span>
               <span className="text-violet-400">Lịch chiếu</span>
             </div>
             <p className="mt-3 max-w-2xl text-sm text-slate-500">
-              Lịch theo tuần (Thứ Hai → Chủ nhật). Dữ liệu mẫu theo tuần đang xem — có thể nối API backend sau.
+              Dữ liệu lấy trực tiếp từ suất nháp backend. Admin có thể publish từng suất hoặc publish tất cả.
+            </p>
+            <p className="mt-2 text-xs text-slate-600">
+              Định dạng khả dụng: {formats.length ? formats.map(f => f.label.toUpperCase()).join(', ') : 'Đang tải...'}
             </p>
           </div>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
           {[
             { label: 'Tổng suất (tuần này)', value: weekCounts.all, tone: 'text-white' },
+            { label: 'Nháp', value: weekCounts.draft, tone: 'text-amber-300' },
             { label: 'Sắp chiếu', value: weekCounts.scheduled, tone: 'text-violet-300' },
             { label: 'Đang chiếu', value: weekCounts.ongoing, tone: 'text-emerald-300' },
             { label: 'Đã kết thúc', value: weekCounts.ended, tone: 'text-slate-400' },
@@ -303,11 +368,11 @@ export default function AdminSchedulePage() {
           ))}
         </div>
         <p className="mt-3 text-xs text-slate-600">
-          Tổng mẫu toàn bộ tuần đang tải: {counts.all} suất (đổi tuần để xem bộ dữ liệu demo khác).
+          Tổng suất nháp tải từ server: {counts.all} suất.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#0b1019] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+      <div className="rounded-2xl border border-white/10 bg-[#0b1019] p-3 shadow-[0_16px_48px_rgba(0,0,0,0.24)] sm:p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="relative w-full xl:w-[28rem]">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600"><SearchIcon /></span>
@@ -319,8 +384,9 @@ export default function AdminSchedulePage() {
               className="h-11 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-11 pr-4 text-sm text-white placeholder-slate-600 outline-none focus:border-violet-500/40"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
             <FilterTab active={filter === 'all'} label="Tất cả" count={counts.all} onClick={() => setFilter('all')} />
+            <FilterTab active={filter === 'draft'} label="Nháp" count={counts.draft} onClick={() => setFilter('draft')} />
             <FilterTab active={filter === 'scheduled'} label="Sắp chiếu" count={counts.scheduled} onClick={() => setFilter('scheduled')} />
             <FilterTab active={filter === 'ongoing'} label="Đang chiếu" count={counts.ongoing} onClick={() => setFilter('ongoing')} />
             <FilterTab active={filter === 'ended'} label="Đã kết thúc" count={counts.ended} onClick={() => setFilter('ended')} />
@@ -329,23 +395,37 @@ export default function AdminSchedulePage() {
         </div>
       </div>
 
-      {/* —— Bảng lịch theo tuần —— */}
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1019] shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
         <div className="flex flex-col gap-4 border-b border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tuần hiển thị</p>
             <p className="mt-1 text-lg font-black text-white">{weekRangeLabel}</p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
             <button
               type="button"
-              id="btn-auto-schedule"
-              onClick={handleAutoSchedule}
-              disabled={autoWorking}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 text-xs font-black text-white shadow-lg shadow-emerald-500/20 transition-all hover:from-emerald-500 hover:to-teal-500 disabled:opacity-60"
+              onClick={() => void handleGenerateDrafts()}
+              disabled={generating || loading || publishingAll}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 text-[11px] font-black text-sky-300 transition-all hover:bg-sky-500/25 disabled:opacity-60 sm:px-4 sm:text-xs"
+            >
+              {generating ? 'Đang sinh lịch...' : 'Sinh lịch nháp'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void fetchDraftShowtimes()}
+              disabled={loading || generating}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 text-[11px] font-black text-white shadow-lg shadow-emerald-500/20 transition-all hover:from-emerald-500 hover:to-teal-500 disabled:opacity-60 sm:px-4 sm:text-xs"
             >
               <SparklesIcon />
-              Tạo lịch tự động
+              {loading ? 'Đang tải...' : 'Lấy suất nháp'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePublishAll()}
+              disabled={publishingAll || loading || generating}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 text-[11px] font-black text-amber-300 transition-all hover:bg-amber-500/25 disabled:opacity-60 sm:px-4 sm:text-xs"
+            >
+              {publishingAll ? 'Đang publish...' : 'Publish tất cả'}
             </button>
             <button
               type="button"
@@ -358,7 +438,7 @@ export default function AdminSchedulePage() {
             <button
               type="button"
               onClick={goThisWeek}
-              className="rounded-lg border border-violet-500/30 bg-violet-500/15 px-4 py-2 text-xs font-black text-violet-200 hover:bg-violet-500/25"
+              className="rounded-lg border border-violet-500/30 bg-violet-500/15 px-3 py-2 text-[11px] font-black text-violet-200 hover:bg-violet-500/25 sm:px-4 sm:text-xs"
             >
               Hôm nay
             </button>
@@ -374,7 +454,7 @@ export default function AdminSchedulePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="grid min-w-[840px] grid-cols-7 divide-x divide-white/10">
+          <div className="grid min-w-[760px] grid-cols-7 divide-x divide-white/10 sm:min-w-[840px]">
             {weekDays.map(day => {
               const items = byDay.get(day.ymd) ?? []
               return (
@@ -382,11 +462,7 @@ export default function AdminSchedulePage() {
                   key={day.ymd}
                   className={`flex min-h-[320px] flex-col bg-white/[0.02] ${day.isToday ? 'ring-1 ring-inset ring-violet-500/40' : ''}`}
                 >
-                  <div
-                    className={`border-b border-white/10 px-2 py-3 text-center ${
-                      day.isToday ? 'bg-violet-500/10' : 'bg-white/[0.03]'
-                    }`}
-                  >
+                  <div className={`border-b border-white/10 px-2 py-3 text-center ${day.isToday ? 'bg-violet-500/10' : 'bg-white/[0.03]'}`}>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{day.label}</p>
                     <p className={`mt-0.5 text-sm font-black ${day.isToday ? 'text-violet-300' : 'text-white'}`}>{day.sub}</p>
                   </div>
@@ -398,10 +474,7 @@ export default function AdminSchedulePage() {
                         const sc = STATUS_CONFIG[r.status]
                         const pct = r.capacity ? Math.round((r.booked / r.capacity) * 100) : 0
                         return (
-                          <div
-                            key={r.id}
-                            className={`rounded-xl border px-2.5 py-2 text-left shadow-sm ${sc.bg} ${sc.border}`}
-                          >
+                          <div key={r.id} className={`rounded-xl border px-2.5 py-2 text-left shadow-sm ${sc.bg} ${sc.border}`}>
                             <p className={`text-[10px] font-black ${sc.color}`}>
                               {r.start_time} – {r.end_time}
                             </p>
@@ -419,6 +492,14 @@ export default function AdminSchedulePage() {
                                 <span className="text-violet-400/70"> {pct}%</span>
                               </span>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => void handlePublishOne(r.id)}
+                              disabled={publishingId === r.id || publishingAll}
+                              className="mt-2 w-full rounded-md border border-emerald-500/35 bg-emerald-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-60"
+                            >
+                              {publishingId === r.id ? 'Đang publish...' : 'Publish suất này'}
+                            </button>
                           </div>
                         )
                       })
@@ -436,299 +517,4 @@ export default function AdminSchedulePage() {
       </div>
     </section>
   )
-
-"use client";
-
-import { useState } from "react";
-import ModalThemSuatChieu from "@/src/component/admin/modalThemSuatChieu";
-
-type ScheduleRow = {
-  availableSeats: number;
-  cinema: string;
-  format: "2D" | "Gold Class" | "IMAX";
-  movie: string;
-  room: string;
-  time: string;
-  totalSeats: number;
-};
-
-type DropdownOption = {
-  label: string;
-  value: string;
-};
-
-const cinemas = ["CINEPRO Landmark 81", "CINEPRO Nguyễn Du", "CINEPRO Gò Vấp"];
-const movies = ["DUNE: PART TWO", "OPPENHEIMER", "GODZILLA x KONG"];
-
-const cinemaOptions: DropdownOption[] = [
-  { label: "Tất cả rạp", value: "" },
-  ...cinemas.map((cinema) => ({ label: cinema, value: cinema })),
-];
-
-const movieOptions: DropdownOption[] = [
-  { label: "Tất cả phim", value: "" },
-  ...movies.map((movie) => ({ label: movie, value: movie })),
-];
-
-const scheduleRows: ScheduleRow[] = [
-  {
-    availableSeats: 45,
-    cinema: "CINEPRO Landmark 81",
-    format: "IMAX",
-    movie: "Dune: Part Two",
-    room: "IMAX 1",
-    time: "10:00",
-    totalSeats: 120,
-  },
-  {
-    availableSeats: 80,
-    cinema: "CINEPRO Landmark 81",
-    format: "2D",
-    movie: "Kung Fu Panda 4",
-    room: "Phòng 3",
-    time: "12:30",
-    totalSeats: 150,
-  },
-  {
-    availableSeats: 12,
-    cinema: "CINEPRO Nguyễn Du",
-    format: "Gold Class",
-    movie: "Godzilla x Kong",
-    room: "Gold Class",
-    time: "14:00",
-    totalSeats: 40,
-  },
-  {
-    availableSeats: 0,
-    cinema: "CINEPRO Landmark 81",
-    format: "IMAX",
-    movie: "Dune: Part Two",
-    room: "IMAX 1",
-    time: "16:30",
-    totalSeats: 120,
-  },
-  {
-    availableSeats: 65,
-    cinema: "CINEPRO Gò Vấp",
-    format: "2D",
-    movie: "Oppenheimer",
-    room: "Phòng 1",
-    time: "19:00",
-    totalSeats: 100,
-  },
-];
-
-const formatBadgeClass: Record<ScheduleRow["format"], string> = {
-  "2D": "bg-gray-500/20 text-gray-400",
-  "Gold Class": "bg-yellow-500/20 text-yellow-400",
-  IMAX: "bg-blue-500/20 text-blue-400",
-};
-
-function normalizeFilter(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function FilterSelect({
-  onChange,
-  options,
-  value,
-}: {
-  onChange: (value: string) => void;
-  options: DropdownOption[];
-  value: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((option) => option.value === value) ?? options[0];
-
-  return (
-    <div
-      className="relative min-w-0"
-      onBlur={(event) => {
-        const nextFocus = event.relatedTarget;
-
-        if (!(nextFocus instanceof Node) || !event.currentTarget.contains(nextFocus)) {
-          setOpen(false);
-        }
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className={`flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border bg-gray-800 px-4 py-2 text-left text-white outline-none transition ${
-          open ? "border-purple-500 ring-2 ring-purple-500/20" : "border-gray-700 hover:border-purple-500/70"
-        }`}
-        aria-expanded={open}
-      >
-        <span className="truncate">{selected.label}</span>
-        <svg
-          className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${open ? "rotate-180 text-purple-400" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-
-      <div
-        className={`absolute left-0 top-full z-30 mt-2 w-full origin-top overflow-hidden rounded-xl border border-purple-500/40 bg-gray-900 shadow-2xl shadow-black/40 transition-all duration-200 ${
-          open ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-95 opacity-0"
-        }`}
-      >
-        <div className="p-1.5">
-          {options.map((option) => {
-            const active = option.value === selected.value;
-
-            return (
-              <button
-                key={option.value || option.label}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition ${
-                  active ? "bg-purple-600 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                }`}
-              >
-                <span className="truncate">{option.label}</span>
-                {active ? <span className="shrink-0 text-xs">✓</span> : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function AdminSchedulePage() {
-  const [addShowModalOpen, setAddShowModalOpen] = useState(false);
-  const [selectedCinema, setSelectedCinema] = useState(cinemaOptions[0].value);
-  const [selectedMovie, setSelectedMovie] = useState(movieOptions[0].value);
-
-  const visibleRows = scheduleRows.filter((show) => {
-    const matchesCinema = !selectedCinema || show.cinema === selectedCinema;
-    const matchesMovie = !selectedMovie || normalizeFilter(show.movie) === normalizeFilter(selectedMovie);
-
-    return matchesCinema && matchesMovie;
-  });
-
-  return (
-    <>
-      <div className="flex h-full min-w-0 flex-1 flex-col bg-black text-white">
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between border-b border-gray-800/50 bg-gray-900/20 px-4 py-4 md:px-8">
-            <div>
-              <h3 className="text-lg font-bold text-white">Lịch chiếu</h3>
-              <div className="mt-0.5 flex items-center gap-2">
-                <span className="text-[10px] uppercase text-gray-500">Dashboard</span>
-                <span className="text-[10px] text-gray-600">/</span>
-                <span className="text-[10px] font-bold uppercase text-purple-400">Lịch chiếu</span>
-              </div>
-            </div>
-            <div className="hidden text-right sm:block">
-              <p className="text-xs text-gray-500">Hôm nay, 10/05/2026</p>
-            </div>
-          </div>
-
-          <div className="p-4 md:p-8">
-            <div className="space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-2xl font-bold">Quản lý Lịch chiếu</h2>
-                <button
-                  type="button"
-                  onClick={() => setAddShowModalOpen(true)}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 font-medium transition hover:opacity-90"
-                >
-                  <span>➕</span> Thêm suất chiếu
-                </button>
-              </div>
-
-              <div className="mb-4 grid grid-cols-3 gap-3 md:gap-4">
-                <input
-                  className="min-w-0 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white shadow-lg shadow-black/10 outline-none transition [color-scheme:dark] hover:border-purple-500/70 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:rounded-md [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:transition"
-                  type="date"
-                  defaultValue="2026-05-10"
-                />
-                <FilterSelect options={cinemaOptions} value={selectedCinema} onChange={setSelectedCinema} />
-                <FilterSelect options={movieOptions} value={selectedMovie} onChange={setSelectedMovie} />
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur">
-                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <table className="w-full min-w-[58rem]">
-                    <thead>
-                      <tr className="bg-gray-800/50 text-left text-sm text-gray-400">
-                        <th className="px-4 py-3 font-medium">Phim</th>
-                        <th className="px-4 py-3 font-medium">Rạp</th>
-                        <th className="px-4 py-3 font-medium">Phòng</th>
-                        <th className="px-4 py-3 font-medium">Giờ chiếu</th>
-                        <th className="px-4 py-3 font-medium">Định dạng</th>
-                        <th className="px-4 py-3 font-medium">Ghế trống</th>
-                        <th className="px-4 py-3 font-medium">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {visibleRows.map((show) => {
-                        const percent = (show.availableSeats / show.totalSeats) * 100;
-                        const progressClass = show.availableSeats === 0 ? "bg-red-500" : "bg-green-500";
-
-                        return (
-                          <tr key={`${show.movie}-${show.time}-${show.room}`} className="hover:bg-gray-800/50">
-                            <td className="px-4 py-3 font-medium">{show.movie}</td>
-                            <td className="px-4 py-3 text-gray-400">{show.cinema}</td>
-                            <td className="px-4 py-3">{show.room}</td>
-                            <td className="px-4 py-3 font-mono text-yellow-500">{show.time}</td>
-                            <td className="px-4 py-3">
-                              <span className={`rounded px-2 py-1 text-xs ${formatBadgeClass[show.format]}`}>
-                                {show.format}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-700">
-                                  <div
-                                    className={`h-full rounded-full ${progressClass}`}
-                                    style={{ width: `${percent}%` }}
-                                  />
-                                </div>
-                                <span className="text-sm text-gray-400">
-                                  {show.availableSeats}/{show.totalSeats}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
-                                <button type="button" className="rounded p-1 transition hover:bg-gray-700">
-                                  ✏️
-                                </button>
-                                <button type="button" className="rounded p-1 transition hover:bg-red-600">
-                                  🗑️
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {visibleRows.length === 0 ? (
-                        <tr>
-                          <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={7}>
-                            Không có suất chiếu phù hợp với bộ lọc hiện tại.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <ModalThemSuatChieu open={addShowModalOpen} onClose={() => setAddShowModalOpen(false)} />
-    </>
-  );
 }

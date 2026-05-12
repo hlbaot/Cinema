@@ -1,10 +1,16 @@
 'use client'
 
+import Cookies from 'js-cookie'
 import { useMemo, useState } from 'react'
-import { CreditCard, Landmark, QrCode, ReceiptText, ShieldCheck } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
+import axios from 'axios'
+import { QrCode, ReceiptText, ShieldCheck } from 'lucide-react'
+import { useParams, useSearchParams } from 'next/navigation'
 
+import { API_CreateBooking } from '@/src/api/API_Booking'
+import { API_CreatePayosPayment, API_GetBookingPaymentStatus } from '@/src/api/API_Payment'
+import { API_LockShowtimeSeats } from '@/src/api/API_Showtime'
 import BookingProgressBar from '@/src/component/user/bookingProgressBar'
+import { getApiErrorMessage } from '@/src/lib/auth-client'
 import { formatVnd } from '@/src/lib/utils'
 
 type SelectedFoodItem = {
@@ -14,26 +20,7 @@ type SelectedFoodItem = {
   quantity: number
 }
 
-const paymentMethods = [
-  {
-    id: 'momo',
-    label: 'Ví MoMo',
-    description: 'Quét QR hoặc xác nhận trong ứng dụng',
-    icon: QrCode,
-  },
-  {
-    id: 'card',
-    label: 'Thẻ ngân hàng',
-    description: 'Visa, Mastercard, Napas',
-    icon: CreditCard,
-  },
-  {
-    id: 'bank',
-    label: 'Chuyển khoản',
-    description: 'Thanh toán qua tài khoản ngân hàng',
-    icon: Landmark,
-  },
-]
+const PAYOS_METHOD = 'payos'
 
 function parseFoodParam(value: string | null): SelectedFoodItem[] {
   if (!value) return []
@@ -55,8 +42,9 @@ function parseFoodParam(value: string | null): SelectedFoodItem[] {
 }
 
 export default function PaymentPage() {
+  const routeParams = useParams<{ sessionId: string }>()
   const searchParams = useSearchParams()
-  const [selectedMethod, setSelectedMethod] = useState(paymentMethods[0].id)
+  const [submitting, setSubmitting] = useState(false)
   const seats = useMemo(
     () => searchParams.get('seats')?.split(',').filter(Boolean) || [],
     [searchParams],
@@ -65,9 +53,114 @@ export default function PaymentPage() {
     () => parseFoodParam(searchParams.get('food')),
     [searchParams],
   )
+  const seatIds = useMemo(
+    () => searchParams.get('seatIds')?.split(',').filter(Boolean) || [],
+    [searchParams],
+  )
+  const bookingIdInQuery = searchParams.get('bookingId')
   const ticketTotal = Number(searchParams.get('ticketTotal') || 0)
   const foodTotal = Number(searchParams.get('foodTotal') || 0)
   const total = Number(searchParams.get('total') || ticketTotal + foodTotal)
+
+  function extractBookingId(data: unknown): string | null {
+    if (!data || typeof data !== 'object') return null
+    const raw = data as Record<string, unknown>
+    const id =
+      (typeof raw.booking_id === 'string' && raw.booking_id) ||
+      (typeof raw.id === 'string' && raw.id) ||
+      (raw.booking && typeof raw.booking === 'object' && typeof (raw.booking as Record<string, unknown>).id === 'string'
+        ? ((raw.booking as Record<string, unknown>).id as string)
+        : null)
+    return id || null
+  }
+
+  async function handleConfirmPayment() {
+    const showtimeId = routeParams.sessionId
+    if (!showtimeId) {
+      alert('Thiếu thông tin suất chiếu.')
+      return
+    }
+    if (seatIds.length === 0) {
+      alert('Không có ghế để thanh toán. Vui lòng chọn lại ghế.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const customerName = Cookies.get('USER_NAME') || 'Khách hàng'
+      const customerEmail = Cookies.get('USER_EMAIL') || ''
+      const customerPhone = Cookies.get('USER_PHONE') || ''
+
+      if (!customerEmail) {
+        throw new Error('Thiếu email tài khoản để tạo booking.')
+      }
+
+      const locked = await API_LockShowtimeSeats(
+        showtimeId,
+        { showtime_seat_ids: seatIds },
+        accessToken,
+      )
+      if (!locked) {
+        throw new Error('Không thể giữ ghế, vui lòng chọn lại.')
+      }
+
+      const bookingRes = await API_CreateBooking(
+        {
+          showtime_id: showtimeId,
+          showtime_seat_ids: seatIds,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone || undefined,
+          notes: PAYOS_METHOD,
+        },
+        accessToken,
+      )
+      const bookingId = extractBookingId(bookingRes.data)
+      if (!bookingId) {
+        throw new Error('Không lấy được mã booking từ hệ thống.')
+      }
+
+      const payRes = await API_CreatePayosPayment({ booking_id: bookingId }, accessToken)
+      if (!payRes.checkoutUrl) {
+        throw new Error('Không lấy được đường dẫn thanh toán PayOS.')
+      }
+      window.location.href = payRes.checkoutUrl
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        // Log chi tiết để debug nhanh trong DevTools.
+        console.error('PayOS flow failed:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        })
+      } else {
+        console.error('PayOS flow failed:', error)
+      }
+
+      const fallback =
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : 'Không thể tạo thanh toán PayOS.'
+      alert(getApiErrorMessage(error, fallback))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleCheckPaymentStatus() {
+    if (!bookingIdInQuery) {
+      alert('Thiếu bookingId để kiểm tra trạng thái.')
+      return
+    }
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const statusRes = await API_GetBookingPaymentStatus(bookingIdInQuery, accessToken)
+      alert(statusRes.data?.message || `Trạng thái thanh toán: ${statusRes.data?.status || 'không rõ'}`)
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Không kiểm tra được trạng thái thanh toán.'))
+    }
+  }
 
   return (
     <div className="min-h-screen bg-black pb-16 text-white">
@@ -77,40 +170,17 @@ export default function PaymentPage() {
         <section>
           <div className="mb-8">
             <p className="mb-2 text-xs font-black uppercase tracking-widest text-yellow-500">Thanh toán</p>
-            <h1 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">Chọn phương thức thanh toán</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">Thanh toán với PayOS</h1>
           </div>
 
-          <div className="grid gap-4">
-            {paymentMethods.map(method => {
-              const Icon = method.icon
-              const isSelected = selectedMethod === method.id
-
-              return (
-                <button
-                  key={method.id}
-                  type="button"
-                  onClick={() => setSelectedMethod(method.id)}
-                  className={`flex items-center gap-4 rounded-2xl border p-5 text-left transition ${
-                    isSelected
-                      ? 'border-yellow-500 bg-yellow-500/10'
-                      : 'border-zinc-800 bg-zinc-950 hover:border-zinc-700'
-                  }`}
-                >
-                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
-                    isSelected ? 'bg-yellow-500 text-black' : 'bg-zinc-900 text-zinc-400'
-                  }`}>
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-base font-black uppercase text-white">{method.label}</span>
-                    <span className="mt-1 block text-sm font-medium text-zinc-500">{method.description}</span>
-                  </span>
-                  <span className={`h-4 w-4 rounded-full border ${
-                    isSelected ? 'border-yellow-500 bg-yellow-500' : 'border-zinc-700'
-                  }`} />
-                </button>
-              )
-            })}
+          <div className="flex items-center gap-4 rounded-2xl border border-yellow-500 bg-yellow-500/10 p-5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-500 text-black">
+              <QrCode className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-black uppercase text-white">PayOS</span>
+              <span className="mt-1 block text-sm font-medium text-zinc-500">Chuyển hướng đến cổng thanh toán PayOS để hoàn tất giao dịch</span>
+            </span>
           </div>
 
           <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
@@ -182,10 +252,21 @@ export default function PaymentPage() {
 
             <button
               type="button"
+              onClick={() => void handleConfirmPayment()}
+              disabled={submitting}
               className="mt-7 w-full rounded-xl bg-yellow-500 px-6 py-4 text-xs font-black uppercase tracking-widest text-black transition hover:bg-yellow-400"
             >
-              Xác nhận thanh toán
+              {submitting ? 'Đang tạo thanh toán...' : 'Xác nhận thanh toán'}
             </button>
+            {bookingIdInQuery ? (
+              <button
+                type="button"
+                onClick={() => void handleCheckPaymentStatus()}
+                className="mt-3 w-full rounded-xl border border-zinc-700 px-6 py-3 text-[11px] font-black uppercase tracking-widest text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+              >
+                Kiểm tra trạng thái thanh toán
+              </button>
+            ) : null}
           </div>
         </aside>
       </div>
