@@ -1,14 +1,14 @@
 "use client";
 
 import { Field, Form, Formik, type FormikHelpers } from "formik";
-import Cookies from "js-cookie";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRightIcon, CoinIcon, EyeIcon, EyeOffIcon, GoogleIcon, LockIcon, MailIcon, TicketIcon } from "@/public/icons/AuthIcons";
-import type { LoginRequest, LoginResponse } from "@/src/interface/auth";
-import { getRoleHomePath, type AppRole } from "@/src/lib/auth-shared";
+import type { LoginRequest } from "@/src/interface/auth";
+import { getRoleHomePath } from "@/src/lib/auth-shared";
 import { API_GG, API_SignIn } from "@/src/api/API_Auth";
+import { getApiErrorMessage, markGoogleLogin, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
 
 type LoginErrors = Partial<Record<keyof LoginRequest, string>>;
 
@@ -42,26 +42,6 @@ function validateSignIn(values: LoginRequest): LoginErrors {
   return errors;
 }
 
-function normalizeRole(role?: string): AppRole {
-  const normalizedRole = role?.toLowerCase();
-
-  return normalizedRole === "admin" || normalizedRole === "staff" || normalizedRole === "user"
-    ? normalizedRole
-    : "user";
-}
-
-function saveLoginCookies(data: LoginResponse["data"], provider: "credentials" | "google" = "credentials") {
-  const role = normalizeRole(data.user.role);
-
-  Cookies.set("ACCESS_TOKEN", data.access_token);
-  Cookies.set("REFRESH_TOKEN", data.refresh_token);
-  Cookies.set("ROLE", role);
-  Cookies.set("USER_ID", data.user.id);
-  Cookies.set("USER_EMAIL", data.user.email);
-  Cookies.set("USER_NAME", data.user.full_name);
-  Cookies.set("AUTH_PROVIDER", provider);
-}
-
 export default function SignInPage({ compact = false, onClose, onSwitchMode }: SignInPageProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -77,29 +57,15 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
       router.push(getRoleHomePath(role));
       router.refresh();
       onClose?.();
-    } catch {
-      actions.setStatus("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+    } catch (error) {
+      actions.setStatus(getApiErrorMessage(error, "Email hoặc mật khẩu không đúng. Vui lòng thử lại."));
     } finally {
       actions.setSubmitting(false);
     }
   }
 
   function handleGoogleLogin() {
-    Cookies.set("AUTH_PROVIDER", "google");
-  }
-
-  function handleQuickRoleLogin(role: "staff" | "admin") {
-    Cookies.set("ROLE", role);
-    Cookies.remove("USER_NAME");
-    Cookies.remove("USER_POINTS");
-    Cookies.remove("MEMBERSHIP_LEVEL");
-    Cookies.remove("ACCESS_TOKEN");
-    Cookies.remove("REFRESH_TOKEN");
-    Cookies.set("AUTH_PROVIDER", "mock");
-
-    router.push(getRoleHomePath(role));
-    router.refresh();
-    onClose?.();
+    markGoogleLogin();
   }
 
   return (
@@ -234,30 +200,6 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
                       <ArrowRightIcon className="h-5 w-5" />
                     </button>
                     {status ? <p className="text-center text-xs font-medium text-red-400">{status}</p> : null}
-
-                    <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Đăng nhập nhanh nội bộ</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => handleQuickRoleLogin("staff")}
-                          className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-400 transition-all hover:cursor-pointer hover:scale-[1.02] hover:bg-sky-500/15"
-                        >
-                          Vào Staff
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleQuickRoleLogin("admin")}
-                          className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-4 py-3 text-sm font-bold text-fuchsia-400 transition-all hover:cursor-pointer hover:scale-[1.02] hover:bg-fuchsia-500/15"
-                        >
-                          Vào Admin
-                        </button>
-                      </div>
-                      <p className="mt-3 text-xs leading-5 text-gray-500">
-                        Luồng đăng nhập người dùng thường đã bỏ mock để bạn nối API thật vào nút <span className="font-medium text-gray-300">Đăng nhập</span>.
-                      </p>
-                    </div>
 
                     <div className="relative my-6">
                       <div className="absolute inset-0 flex items-center">

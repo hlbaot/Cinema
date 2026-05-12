@@ -1,15 +1,17 @@
-<<<<<<< Updated upstream
+
+"use client";
+
+
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
 import styled from 'styled-components';
-=======
+
 "use client";
 
 import * as React from "react";
 import Box from "@mui/material/Box";
 import Modal from "@mui/material/Modal";
->>>>>>> Stashed changes
 
 const style = {
   position: "absolute" as const,
@@ -19,15 +21,27 @@ const style = {
   outline: "none",
 };
 
+type ModalOTPProps = {
+  email?: string;
+  error?: string;
+  handleClose: () => void;
+  isSubmitting?: boolean;
+  onResend?: () => void;
+  onVerify: (otp: string) => void;
+  open: boolean;
+};
+
 const ModalOTP = ({
+  email,
+  error,
   open,
   handleClose,
-<<<<<<< Updated upstream
+
 }: {
   open: boolean;
   handleClose: () => void;
 }) => {
-=======
+
   isSubmitting = false,
   onResend,
   onVerify,
@@ -60,6 +74,7 @@ const ModalOTP = ({
     }
   }
 
+
   function handleOtpPaste(index: number, event: React.ClipboardEvent<HTMLInputElement>) {
     event.preventDefault();
     const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
@@ -79,7 +94,6 @@ const ModalOTP = ({
     onVerify(otpValues.join(""));
   }
 
->>>>>>> Stashed changes
   return (
     <Modal
       open={open}
@@ -91,26 +105,40 @@ const ModalOTP = ({
       }}
     >
       <Box sx={style}>
-<<<<<<< Updated upstream
+
         <StyledWrapper>
-          <form className="otp-Form">
+          <form className="otp-Form" onSubmit={handleSubmit}>
             <span className="mainHeading">Enter OTP</span>
 
             <p className="otpSubheading">
-              We have sent a verification code to your mobile number
+              We have sent a verification code to {email || "your email"}
             </p>
 
             <div className="inputContainer">
-              <input required maxLength={1} type="text" className="otp-input" />
-              <input required maxLength={1} type="text" className="otp-input" />
-              <input required maxLength={1} type="text" className="otp-input" />
-              <input required maxLength={1} type="text" className="otp-input" />
+              {otpValues.map((value, index) => (
+                <input
+                  key={`otp-${index}`}
+                  ref={(element) => {
+                    inputRefs.current[index] = element;
+                  }}
+                  required
+                  maxLength={1}
+                  inputMode="numeric"
+                  type="text"
+                  className="otp-input"
+                  value={value}
+                  onChange={(event) => handleOtpChange(index, event.target.value)}
+                  onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                />
+              ))}
             </div>
 
-            <button className="verifyButton" type="submit">
-              Verify
+            {error ? <p className="errorText">{error}</p> : null}
+
+            <button className="verifyButton" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Verifying..." : "Verify"}
             </button>
-=======
+
         <form
           className="relative flex w-[min(100vw-2rem,380px)] flex-col items-center gap-5 rounded-2xl border border-gray-700 bg-gray-900 p-8 shadow-[0_24px_48px_rgba(0,0,0,0.45)]"
           noValidate
@@ -154,7 +182,7 @@ const ModalOTP = ({
           </div>
 
           {error ? <p className="text-center text-xs font-medium text-red-400">{error}</p> : null}
->>>>>>> Stashed changes
+
 
           <button
             type="submit"
@@ -174,30 +202,29 @@ const ModalOTP = ({
             >
               Gửi lại mã
             </button>
-<<<<<<< Updated upstream
+
 
             <p className="resendNote">
-              Didn't receive the code?
-              <button className="resendBtn" type="button">
+              Didn&apos;t receive the code?
+              <button className="resendBtn" type="button" onClick={onResend} disabled={isSubmitting}>
                 Resend Code
               </button>
             </p>
           </form>
         </StyledWrapper>
-=======
           </p>
         </form>
->>>>>>> Stashed changes
+
       </Box>
     </Modal>
   );
 };
 
-<<<<<<< Updated upstream
+
 const StyledWrapper = styled.div`
   .otp-Form {
-    width: 230px;
-    height: 300px;
+    width: 320px;
+    min-height: 320px;
     background-color: rgb(255, 255, 255);
     display: flex;
     flex-direction: column;
@@ -245,6 +272,14 @@ const StyledWrapper = styled.div`
     font-weight: 600;
   }
 
+  .errorText {
+    margin: -8px 0 0;
+    color: rgb(239, 68, 68);
+    font-size: 0.72em;
+    font-weight: 600;
+    text-align: center;
+  }
+
   .otp-input:focus,
   .otp-input:valid {
     background-color: rgba(127, 129, 255, 0.199);
@@ -266,6 +301,12 @@ const StyledWrapper = styled.div`
   .verifyButton:hover {
     background-color: rgb(144, 145, 255);
     transition-duration: 0.2s;
+  }
+
+  .verifyButton:disabled,
+  .resendBtn:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
 
   .exitBtn {
@@ -305,6 +346,5 @@ const StyledWrapper = styled.div`
 `;
 
 export default ModalOTP;
-=======
 export default ModalOTP;
->>>>>>> Stashed changes
+

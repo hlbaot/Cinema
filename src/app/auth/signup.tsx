@@ -2,17 +2,17 @@
 
 import { Field, Form, Formik, type FormikHelpers } from "formik";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CoinIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, TicketIcon, UserIcon, UserPlusIcon, GoogleIcon } from "@/public/icons/AuthIcons";
-<<<<<<< Updated upstream
 import type { RegisterRequest } from "@/src/interface/auth";
-=======
-import { API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
+
+import { API_GG, API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
 import ModalOTP from "@/src/app/auth/modalOtp";
-import { Gender, type RegisterRequest } from "@/src/interface/auth";
+import type { RegisterRequest } from "@/src/interface/auth";
 import { getRoleHomePath } from "@/src/lib/auth-shared";
-import { getApiErrorMessage, hasLoginData, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
->>>>>>> Stashed changes
+import { getApiErrorMessage, hasLoginData, markGoogleLogin, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
+
 
 type SignUpFormValues = Omit<RegisterRequest, "gender"> & { gender: Gender | "" };
 
@@ -83,18 +83,30 @@ function validateSignUp(values: SignUpFormValues): RegisterErrors {
 }
 
 export default function SignUpPage({ compact = false, onClose, onSwitchMode }: SignUpPageProps) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingRegister, setPendingRegister] = useState<RegisterRequest | null>(null);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
 
-<<<<<<< Updated upstream
+
   function handleSignUpSubmit(_values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
     actions.setSubmitting(false);
-=======
+
   async function handleSignUpSubmit(values: SignUpFormValues, actions: FormikHelpers<SignUpFormValues>) {
+
+  async function handleSignUpSubmit(values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
+
     const payload: RegisterRequest = {
       birth_date: values.birth_date,
       email: values.email.trim(),
       full_name: values.full_name.trim(),
+
       gender: values.gender as Gender,
+
+      gender: values.gender,
+
       password: values.password,
       phone: values.phone.trim(),
     };
@@ -173,7 +185,10 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
     } finally {
       setOtpSubmitting(false);
     }
->>>>>>> Stashed changes
+  }
+
+  function handleGoogleLogin() {
+    markGoogleLogin();
   }
 
   return (
@@ -230,13 +245,10 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
             </div>
 
             <div className="flex-1 p-5 sm:p-7">
-<<<<<<< Updated upstream
               <Formik<RegisterRequest> initialValues={initialSignUpValues} validate={validateSignUp} onSubmit={handleSignUpSubmit}>
                 {({ errors, isSubmitting, touched, values }) => (
-=======
-              <Formik<SignUpFormValues> initialValues={initialSignUpValues} validate={validateSignUp} onSubmit={handleSignUpSubmit}>
+
                 {({ errors, isSubmitting, status, touched, values }) => (
->>>>>>> Stashed changes
                   <Form className="space-y-4">
                     <div>
                       <label htmlFor="full_name" className="mb-2 block text-sm font-medium text-gray-300">
@@ -392,9 +404,10 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                     </div>
 
                     <div className="space-y-3">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:border-white/20 hover:bg-[#0b0b0b]"
+                      <a
+                        href={API_GG}
+                        onClick={handleGoogleLogin}
+                        className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:cursor-pointer hover:border-white/20 hover:bg-[#0b0b0b]"
                       >
                         <span className="flex items-center gap-4">
                           <GoogleIcon className="h-7 w-7 shrink-0" />
@@ -402,7 +415,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                             Tiếp tục với Google
                           </span>
                         </span>
-                      </button>
+                      </a>
                     </div>
 
                     <button
@@ -413,6 +426,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                       <span>Tạo tài khoản</span>
                       <UserPlusIcon className="h-5 w-5" />
                     </button>
+                    {status ? <p className="text-center text-xs font-medium text-red-400">{status}</p> : null}
                   </Form>
                 )}
               </Formik>
@@ -452,6 +466,18 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
           ) : null}
         </div>
       </div>
+      <ModalOTP
+        email={pendingRegister?.email}
+        error={otpError}
+        handleClose={() => {
+          setOtpModalOpen(false);
+          setOtpError("");
+        }}
+        isSubmitting={otpSubmitting}
+        onResend={handleResendOtp}
+        onVerify={handleVerifyOtp}
+        open={otpModalOpen}
+      />
       <style>{`
         .auth-modal-shell,
         .auth-modal-shell * {

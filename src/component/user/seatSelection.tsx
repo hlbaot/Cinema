@@ -126,6 +126,7 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
   }
 
   const seatRows = Array.from(new Set(seats.map(s => s.row))).sort()
+  const maxCols = Math.max(10, ...seats.map(s => parseInt(s.col) || 0))
 
   return (
     <div className="flex flex-col xl:flex-row gap-8 bg-black min-h-screen text-white pb-20 justify-center">
@@ -227,25 +228,26 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
                </div>
             </div>
 
-            {/* Lưới ghế ngồi - Scale tự động nếu vượt quá chiều rộng */}
-            <div className="select-none scale-[0.9] sm:scale-100 transition-transform origin-top py-4">
-               <div className="flex flex-col gap-4">
+            {/* Lưới ghế ngồi - Không scroll ngang, cột đều nhau */}
+            <div className="select-none w-full py-4">
+               <div className="flex flex-col gap-2 sm:gap-4 w-full max-w-[800px] mx-auto px-1 sm:px-4">
                 {seatRows.map(row => (
-                  <div key={row} className="flex items-center gap-6">
-                    <span className="w-6 shrink-0 text-center text-[11px] font-black text-zinc-800">{row}</span>
-                    <div className="flex gap-2 justify-center">
-                      {seats.filter(s => s.row === row).sort((a,b) => parseInt(a.col) - parseInt(b.col)).map(seat => (
+                  <div key={row} className="flex items-center justify-between w-full gap-1 sm:gap-4">
+                    <span className="w-4 sm:w-6 shrink-0 text-center text-[10px] sm:text-[11px] font-black text-zinc-800">{row}</span>
+                    <div className="grid gap-1 sm:gap-2 flex-1" style={{ gridTemplateColumns: `repeat(${maxCols}, minmax(0, 1fr))` }}>
+                      {seats.filter(s => s.row === row).map(seat => (
                         <button
                           key={seat.id}
                           onClick={() => toggleSeat(seat.id)}
                           disabled={seat.status === 'sold' || isExpired}
-                          className={`h-8 relative transition-all duration-200 rounded-lg border-2 text-[10px] font-bold flex items-center justify-center hover:scale-110 active:scale-95 ${getSeatStyles(seat)} ${seat.type === 'couple' ? 'w-[72px]' : 'w-8'}`}
+                          style={{ gridColumn: parseInt(seat.col) }}
+                          className={`w-full relative transition-all duration-200 rounded sm:rounded-lg border sm:border-2 text-[7px] sm:text-[10px] font-bold flex items-center justify-center hover:scale-[1.05] active:scale-95 ${getSeatStyles(seat)} aspect-square`}
                         >
-                          {seat.row}{seat.col}
+                          <span className="scale-75 sm:scale-100 truncate">{seat.row}{seat.col}</span>
                         </button>
                       ))}
                     </div>
-                    <span className="w-6 shrink-0 text-center text-[11px] font-black text-zinc-800">{row}</span>
+                    <span className="w-4 sm:w-6 shrink-0 text-center text-[10px] sm:text-[11px] font-black text-zinc-800">{row}</span>
                   </div>
                 ))}
                </div>
