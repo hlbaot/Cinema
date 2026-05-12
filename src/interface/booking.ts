@@ -10,7 +10,8 @@ export interface CreateBookingRequest {
 }
 
 export interface CreateBookingResponse {
-  success: boolean;
+  /** Một số BE chỉ trả `data`; chỉ coi là lỗi khi `success === false`. */
+  success?: boolean;
   message?: string;
   data?: unknown;
 }

@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CoinIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, TicketIcon, UserIcon, UserPlusIcon, GoogleIcon } from "@/public/icons/AuthIcons";
 import type { RegisterRequest } from "@/src/interface/auth";
+import { Gender } from "@/src/interface/auth";
 
 import { API_GG, API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
 import ModalOTP from "@/src/app/auth/modalOtp";
-import type { RegisterRequest } from "@/src/interface/auth";
 import { getRoleHomePath } from "@/src/lib/auth-shared";
-import { getApiErrorMessage, hasLoginData, markGoogleLogin, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
+import { getApiErrorMessage, hasLoginData, normalizeRole, saveLoginCookies, markGoogleLogin } from "@/src/lib/auth-client";
 
 
 type SignUpFormValues = Omit<RegisterRequest, "gender"> & { gender: Gender | "" };
@@ -89,24 +89,12 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
-
-
-  function handleSignUpSubmit(_values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
-    actions.setSubmitting(false);
-
   async function handleSignUpSubmit(values: SignUpFormValues, actions: FormikHelpers<SignUpFormValues>) {
-
-  async function handleSignUpSubmit(values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
-
     const payload: RegisterRequest = {
       birth_date: values.birth_date,
       email: values.email.trim(),
       full_name: values.full_name.trim(),
-
-      gender: values.gender as Gender,
-
-      gender: values.gender,
-
+      gender: values.gender as string,
       password: values.password,
       phone: values.phone.trim(),
     };
@@ -142,7 +130,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
     try {
       const response = await API_VerifyOTP({
         email: pendingRegister.email,
-        otp_code: String(otp).trim(),
+        otp: String(otp).trim(),
       });
 
       setOtpModalOpen(false);
@@ -245,9 +233,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
             </div>
 
             <div className="flex-1 p-5 sm:p-7">
-              <Formik<RegisterRequest> initialValues={initialSignUpValues} validate={validateSignUp} onSubmit={handleSignUpSubmit}>
-                {({ errors, isSubmitting, touched, values }) => (
-
+              <Formik<SignUpFormValues> initialValues={initialSignUpValues} validate={validateSignUp} onSubmit={handleSignUpSubmit}>
                 {({ errors, isSubmitting, status, touched, values }) => (
                   <Form className="space-y-4">
                     <div>

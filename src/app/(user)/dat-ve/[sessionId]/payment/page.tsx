@@ -10,7 +10,7 @@ import { API_CreateBooking } from '@/src/api/API_Booking'
 import { API_CreatePayosPayment, API_GetBookingPaymentStatus } from '@/src/api/API_Payment'
 import { API_LockShowtimeSeats } from '@/src/api/API_Showtime'
 import BookingProgressBar from '@/src/component/user/bookingProgressBar'
-import { getApiErrorMessage } from '@/src/lib/auth-client'
+import { decodeJwtPayload, getApiErrorMessage } from '@/src/lib/auth-client'
 import { formatVnd } from '@/src/lib/utils'
 
 type SelectedFoodItem = {
@@ -21,6 +21,50 @@ type SelectedFoodItem = {
 }
 
 const PAYOS_METHOD = 'payos'
+
+/** Gom thông báo lỗi từ body tạo booking (message / error / data / class-validator). */
+function extractCreateBookingErrorMessage(payload: unknown): string | null {
+  if (payload == null || typeof payload !== 'object') return null
+  const r = payload as Record<string, unknown>
+
+  const pick = (v: unknown): string | null => {
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (Array.isArray(v)) {
+      const joined = v
+        .map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
+        .join(' ')
+      return joined.trim() || null
+    }
+    return null
+  }
+
+  const fromConstraints = (items: unknown): string | null => {
+    if (!Array.isArray(items)) return null
+    const parts: string[] = []
+    for (const item of items) {
+      if (typeof item === 'string') parts.push(item)
+      else if (item && typeof item === 'object' && 'constraints' in item) {
+        const c = (item as { constraints?: Record<string, string> }).constraints
+        if (c && typeof c === 'object') parts.push(...Object.values(c))
+      }
+    }
+    return parts.length ? parts.join(' ') : null
+  }
+
+  const data = r.data
+
+  return (
+    pick(r.message) ??
+    pick(r.error) ??
+    pick(r.reason) ??
+    (data && typeof data === 'object'
+      ? pick((data as Record<string, unknown>).message) ??
+        pick((data as Record<string, unknown>).error) ??
+        pick((data as Record<string, unknown>).reason)
+      : null) ??
+    fromConstraints(r.errors)
+  )
+}
 
 function parseFoodParam(value: string | null): SelectedFoodItem[] {
   if (!value) return []
@@ -62,16 +106,46 @@ export default function PaymentPage() {
   const foodTotal = Number(searchParams.get('foodTotal') || 0)
   const total = Number(searchParams.get('total') || ticketTotal + foodTotal)
 
-  function extractBookingId(data: unknown): string | null {
-    if (!data || typeof data !== 'object') return null
-    const raw = data as Record<string, unknown>
-    const id =
-      (typeof raw.booking_id === 'string' && raw.booking_id) ||
-      (typeof raw.id === 'string' && raw.id) ||
-      (raw.booking && typeof raw.booking === 'object' && typeof (raw.booking as Record<string, unknown>).id === 'string'
-        ? ((raw.booking as Record<string, unknown>).id as string)
-        : null)
-    return id || null
+  function coerceBookingId(value: unknown): string | null {
+    if (typeof value === 'string') {
+      const t = value.trim()
+      return t || null
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value)
+    }
+    return null
+  }
+
+  /** Lấy id booking từ body tạo booking — BE có thể trả envelope, camelCase hoặc id kiểu số. */
+  function extractBookingId(payload: unknown): string | null {
+    if (payload == null) return null
+    if (typeof payload === 'string') return coerceBookingId(payload)
+    if (typeof payload !== 'object') return null
+    const raw = payload as Record<string, unknown>
+
+    const direct =
+      coerceBookingId(raw.booking_id) ??
+      coerceBookingId(raw.bookingId) ??
+      coerceBookingId(raw.id) ??
+      coerceBookingId(raw.uuid) ??
+      coerceBookingId(raw.booking_uuid)
+    if (direct) return direct
+
+    if (raw.booking && typeof raw.booking === 'object') {
+      const b = raw.booking as Record<string, unknown>
+      const nested =
+        coerceBookingId(b.id) ??
+        coerceBookingId(b.booking_id) ??
+        coerceBookingId(b.bookingId) ??
+        coerceBookingId(b.uuid) ??
+        coerceBookingId(b.booking_uuid)
+      if (nested) return nested
+    }
+
+    if (raw.data !== undefined) return extractBookingId(raw.data)
+
+    return null
   }
 
   async function handleConfirmPayment() {
@@ -89,8 +163,19 @@ export default function PaymentPage() {
     try {
       const accessToken = Cookies.get('ACCESS_TOKEN')
       const customerName = Cookies.get('USER_NAME') || 'Khách hàng'
-      const customerEmail = Cookies.get('USER_EMAIL') || ''
+      let customerEmail = Cookies.get('USER_EMAIL') || ''
+      if (customerEmail === 'undefined' || customerEmail === 'null') {
+        customerEmail = ''
+      }
       const customerPhone = Cookies.get('USER_PHONE') || ''
+
+      // Nếu cookie USER_EMAIL không có, thử lấy từ payload của ACCESS_TOKEN
+      if (!customerEmail && accessToken) {
+        const payload = decodeJwtPayload(accessToken)
+        if (payload?.email) {
+          customerEmail = payload.email
+        }
+      }
 
       if (!customerEmail) {
         throw new Error('Thiếu email tài khoản để tạo booking.')
@@ -116,8 +201,26 @@ export default function PaymentPage() {
         },
         accessToken,
       )
-      const bookingId = extractBookingId(bookingRes.data)
-      if (!bookingId) {
+
+      const bookingId = extractBookingId(bookingRes)
+      if (bookingId) {
+        if (bookingRes.success === false) {
+          console.warn(
+            '[payment] Create booking: success is false but a booking id was parsed; continuing to PayOS.',
+            bookingRes,
+          )
+        }
+      } else {
+        console.error('Create booking: response had no parsable booking id', bookingRes)
+        const apiErr = extractCreateBookingErrorMessage(bookingRes)
+        if (apiErr) {
+          throw new Error(apiErr)
+        }
+        if (bookingRes.success === false) {
+          throw new Error(
+            'Tạo booking thất bại. Phản hồi từ server không có mã booking và không có mô tả lỗi — mở Network → POST /api/v1/bookings để xem chi tiết.',
+          )
+        }
         throw new Error('Không lấy được mã booking từ hệ thống.')
       }
 

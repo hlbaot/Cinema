@@ -18,23 +18,37 @@ export function saveLoginCookies(
 ) {
   const role = normalizeRole(data.user.role);
 
-  Cookies.set("ACCESS_TOKEN", data.access_token);
-  Cookies.set("REFRESH_TOKEN", data.refresh_token);
-  Cookies.set("ROLE", role);
-  Cookies.set("USER_ID", data.user.id);
-  Cookies.set("USER_EMAIL", data.user.email);
-  Cookies.set("USER_NAME", data.user.full_name);
-  Cookies.set("AUTH_PROVIDER", provider);
+  Cookies.set("ACCESS_TOKEN", data.access_token, { path: '/' });
+  Cookies.set("REFRESH_TOKEN", data.refresh_token, { path: '/' });
+  Cookies.set("ROLE", role, { path: '/' });
+
+  // Cố định lưu các trường quan trọng (email, id, name) để đảm bảo không bị thiếu
+  if (data.user.id) Cookies.set("USER_ID", data.user.id, { path: '/' });
+  if (data.user.email) Cookies.set("USER_EMAIL", data.user.email, { path: '/' });
+  if (data.user.full_name) Cookies.set("USER_NAME", data.user.full_name, { path: '/' });
+
+  // Lưu tự động toàn bộ các trường còn lại (phone, gender, points...)
+  Object.entries(data.user).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && key !== 'id' && key !== 'email' && key !== 'full_name') {
+      Cookies.set(`USER_${key.toUpperCase()}`, typeof value === 'object' ? JSON.stringify(value) : String(value), { path: '/' });
+    }
+  });
 }
 
 export function clearAuthCookies() {
-  Cookies.remove("ACCESS_TOKEN");
-  Cookies.remove("REFRESH_TOKEN");
-  Cookies.remove("USER_ID");
-  Cookies.remove("USER_EMAIL");
-  Cookies.remove("USER_NAME");
-  Cookies.remove("USER_POINTS");
-  Cookies.remove("MEMBERSHIP_LEVEL");
+  Cookies.remove("ACCESS_TOKEN", { path: '/' });
+  Cookies.remove("REFRESH_TOKEN", { path: '/' });
+  Cookies.remove("ROLE", { path: '/' });
+  Cookies.remove("AUTH_PROVIDER", { path: '/' });
+  Cookies.remove("USER_ID", { path: '/' });
+  Cookies.remove("USER_EMAIL", { path: '/' });
+  Cookies.remove("USER_NAME", { path: '/' });
+  Cookies.remove("USER_POINTS", { path: '/' });
+  Cookies.remove("MEMBERSHIP_LEVEL", { path: '/' });
+}
+
+export function markGoogleLogin() {
+  Cookies.set("AUTH_PROVIDER", "google", { path: '/' });
 }
 
 function flattenBackendMessage(message: unknown): string | undefined {
@@ -89,4 +103,21 @@ export function getApiErrorMessage(error: unknown, fallback: string) {
 
 export function hasLoginData(data?: VerifyOtpResponse["data"]): data is LoginResponse["data"] {
   return Boolean(data?.access_token && data.refresh_token && data.user);
+}
+
+export function decodeJwtPayload(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    return null;
+  }
 }

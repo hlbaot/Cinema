@@ -49,10 +49,10 @@ export const API_VerifyOTP = async (values: VerifyOtpRequest): Promise<VerifyOtp
 
 export const API_GG = `${API_URL}/api/v1/auth/google/login`
 
-export const API_GoogleCallback = async (code: string): Promise<LoginResponse> => {
-    const res = await axios.get<LoginResponse>(
-        `${API_URL}/api/v1/auth/google/callback`,
-        { params: { code } }
-    );
-    return res.data;
-};
+// export const API_GoogleCallback = async (code: string): Promise<LoginResponse> => {
+//     const res = await axios.get<LoginResponse>(
+//         `${API_URL}/api/v1/auth/google/callback`,
+//         { params: { code } }
+//     );
+//     return res.data;
+// };
