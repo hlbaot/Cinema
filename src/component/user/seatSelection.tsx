@@ -40,7 +40,8 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
 
   // Map API → model UI: ghế đang chọn override trạng thái thành 'selected'.
   const seats: Seat[] = useMemo(() => apiSeats.map(s => {
-    const id = s.seat_id || s.id
+    // Lock/booking cần showtime_seat_id, backend đang trả ở trường `id`.
+    const id = s.id
     return {
       id,
       row: s.seat_row,
@@ -70,7 +71,14 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
   const totalPrice = selectedSeats.reduce((acc, s) => acc + s.price, 0)
   const selectedSeatLabels = selectedSeats.map(seat => `${seat.row}${seat.col}`)
   const minimumAge = movie?.age_rating?.match(/\d+/)?.[0] || ''
-  const foodHref = `/dat-ve/${sessionId}/food?movieId=${movie?.id}&roomId=${roomId}&seats=${selectedSeatLabels.join(',')}&ticketTotal=${totalPrice}`
+  const foodParams = new URLSearchParams({
+    movieId: movie?.id || '',
+    roomId,
+    seats: selectedSeatLabels.join(','),
+    seatIds: selectedSeatIds.join(','),
+    ticketTotal: String(totalPrice),
+  })
+  const foodHref = `/dat-ve/${sessionId}/food?${foodParams.toString()}`
 
   const toggleSeat = (id: string) => {
     if (isExpired) return

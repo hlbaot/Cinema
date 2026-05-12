@@ -3,7 +3,10 @@ import { API_URL } from './url'
 
 /** Đổi path cho khớp backend Nest khi có module staff/tickets */
 const TICKET_VERIFY_PATH = '/api/v1/tickets/verify'
+const TICKET_CHECKIN_PATH = '/api/v1/tickets'
 const TICKET_SALES_PATH = '/api/v1/staff/ticket-sales'
+const CREATE_STAFF_PATH = '/api/v1/users/staff'
+const GET_STAFFS_PATH = '/api/v1/users/staffs'
 
 export interface TicketVerifyDetail {
   movieTitle?: string
@@ -29,6 +32,45 @@ export interface StaffTicketSaleDto {
   amountVnd: number
   status?: string
   createdAt: string
+}
+
+export interface CreateStaffRequest {
+  full_name: string
+  email: string
+  password: string
+  phone?: string
+  avatar_url?: string
+}
+
+export interface UserItemDto {
+  id: string
+  email: string
+  full_name: string
+  phone: string | null
+  avatar_url: string | null
+  role: string
+  status: string
+  auth_provider: 'local' | 'google'
+  created_at: string
+}
+
+export interface CreateStaffResponseDto {
+  success: boolean
+  data: {
+    message: string
+    staff: UserItemDto
+  }
+}
+
+export interface GetUserResponseDto {
+  success: boolean
+  data: {
+    message: string
+    users: UserItemDto[]
+    total: number
+    page: number
+    limit: number
+  }
 }
 
 function errText(e: unknown): string {
@@ -104,6 +146,30 @@ export async function API_VerifyTicket(code: string): Promise<TicketVerifyOutcom
   }
 }
 
+export interface TicketCheckInResponseDto {
+  success: boolean
+  data?: {
+    message?: string
+    ticket?: Record<string, unknown>
+    [key: string]: unknown
+  }
+  message?: string
+}
+
+/** Check-in vé sau khi verify (role staff/admin). */
+export async function API_CheckInTicket(
+  ticketId: string,
+  accessToken?: string,
+): Promise<TicketCheckInResponseDto> {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.patch<TicketCheckInResponseDto>(`${API_URL}${TICKET_CHECKIN_PATH}/${ticketId}/check-in`, undefined, { headers })
+  return res.data
+}
+
 /** Chuẩn hoá một dòng bán vé từ API (snake_case / camelCase / booking_id). */
 function mapSaleRow(raw: Record<string, unknown>): StaffTicketSaleDto | null {
   const id = typeof raw.id === 'string' ? raw.id : typeof raw.booking_id === 'string' ? raw.booking_id : null
@@ -145,4 +211,38 @@ export async function API_GetStaffTicketSales(page = 1, limit = 50): Promise<Sta
   } catch {
     return []
   }
+}
+
+/** Tạo tài khoản staff (role admin). */
+export async function API_CreateStaff(
+  payload: CreateStaffRequest,
+  accessToken?: string,
+): Promise<CreateStaffResponseDto> {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.post<CreateStaffResponseDto>(`${API_URL}${CREATE_STAFF_PATH}`, payload, {
+    headers,
+  })
+  return res.data
+}
+
+/** Lấy danh sách staff (role admin). */
+export async function API_GetStaffs(
+  page = 1,
+  limit = 20,
+  accessToken?: string,
+): Promise<GetUserResponseDto> {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.get<GetUserResponseDto>(`${API_URL}${GET_STAFFS_PATH}`, {
+    params: { page, limit },
+    headers,
+  })
+  return res.data
 }

@@ -1,7 +1,10 @@
 
 'use client'
 
-import React, { useMemo, useRef, useState } from 'react'
+import Cookies from 'js-cookie'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { API_CreateStaff, API_GetStaffs, type UserItemDto } from '@/src/api/API_Staff'
+import { getApiErrorMessage } from '@/src/lib/auth-client'
 
 type UserStatus = 'active' | 'blocked'
 
@@ -10,11 +13,30 @@ interface AdminUserRow {
   full_name: string
   email: string
   phone: string
-  role: 'user' | 'admin'
+  role: 'user' | 'admin' | 'staff'
   points: number
   membership: string
   status: UserStatus
   joined_at: string
+}
+
+type CreateStaffForm = {
+  full_name: string
+  email: string
+  password: string
+  phone: string
+  avatar_url: string
+}
+
+export type AdminUserInfo = {
+  email: string
+  id: number
+  memberRank: 'GOLD' | 'SILVER' | 'VIP'
+  name: string
+  phone: string
+  points: string
+  role: 'admin' | 'staff' | 'customer'
+  status: string
 }
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; bg: string; dot: string }> = {
@@ -22,12 +44,19 @@ const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; bg: stri
   blocked: { label: 'Đã khóa', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20', dot: 'bg-red-400' },
 }
 
-const MOCK: AdminUserRow[] = [
-  { id: '1', full_name: 'Nguyễn Văn A', email: 'a@gmail.com', phone: '0901234567', role: 'user', points: 1200, membership: 'Gold', status: 'active', joined_at: '2025-01-10' },
-  { id: '2', full_name: 'Trần Thị B', email: 'b@gmail.com', phone: '0912345678', role: 'user', points: 340, membership: 'Silver', status: 'active', joined_at: '2025-06-22' },
-  { id: '3', full_name: 'Admin Hệ thống', email: 'admin@cinema.local', phone: '—', role: 'admin', points: 0, membership: '—', status: 'active', joined_at: '2024-03-01' },
-  { id: '4', full_name: 'Lê Văn C', email: 'c@gmail.com', phone: '0933444555', role: 'user', points: 50, membership: 'Bronze', status: 'blocked', joined_at: '2026-02-01' },
-]
+function mapApiUserToRow(user: UserItemDto): AdminUserRow {
+  return {
+    id: user.id,
+    full_name: user.full_name,
+    email: user.email,
+    phone: user.phone ?? '—',
+    role: user.role === 'admin' || user.role === 'staff' ? user.role : 'user',
+    points: 0,
+    membership: '—',
+    status: user.status === 'active' ? 'active' : 'blocked',
+    joined_at: typeof user.created_at === 'string' ? user.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+  }
+}
 
 function SearchIcon() {
   return (
@@ -53,10 +82,93 @@ function FilterTab({ active, count, label, onClick }: { active: boolean; count: 
 }
 
 export default function AdminUsersPage() {
-  const [rows] = useState<AdminUserRow[]>(MOCK)
+  const [rows, setRows] = useState<AdminUserRow[]>([])
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | UserStatus | 'admin' | 'user'>('all')
+  const [filter, setFilter] = useState<'all' | UserStatus | 'admin' | 'staff' | 'user'>('all')
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [creatingStaff, setCreatingStaff] = useState(false)
+  const [staffForm, setStaffForm] = useState<CreateStaffForm>({
+    full_name: '',
+    email: '',
+    password: '',
+    phone: '',
+    avatar_url: '',
+  })
   const searchRef = useRef<HTMLInputElement>(null)
+
+  async function fetchStaffs() {
+    setLoadingUsers(true)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const res = await API_GetStaffs(1, 200, accessToken)
+      setRows(res.data.users.map(mapApiUserToRow))
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Không thể tải danh sách staff.'))
+      setRows([])
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  useEffect(() => {
+    void fetchStaffs()
+  }, [])
+
+  async function handleCreateStaff(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const full_name = staffForm.full_name.trim()
+    const email = staffForm.email.trim()
+    const password = staffForm.password
+    const phone = staffForm.phone.trim()
+    const avatar_url = staffForm.avatar_url.trim()
+
+    if (!full_name) return alert('Vui lòng nhập họ tên nhân viên.')
+    if (!email) return alert('Vui lòng nhập email nhân viên.')
+    if (password.length < 6) return alert('Mật khẩu tối thiểu 6 ký tự.')
+
+    setCreatingStaff(true)
+    try {
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const res = await API_CreateStaff(
+        {
+          full_name,
+          email,
+          password,
+          phone: phone || undefined,
+          avatar_url: avatar_url || undefined,
+        },
+        accessToken,
+      )
+
+      const staff = res.data.staff
+      setRows(prev => [
+        {
+          id: staff.id,
+          full_name: staff.full_name,
+          email: staff.email,
+          phone: staff.phone ?? '—',
+          role: 'staff',
+          points: 0,
+          membership: '—',
+          status: staff.status === 'active' ? 'active' : 'blocked',
+          joined_at: typeof staff.created_at === 'string' ? staff.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        },
+        ...prev,
+      ])
+      setStaffForm({
+        full_name: '',
+        email: '',
+        password: '',
+        phone: '',
+        avatar_url: '',
+      })
+      alert(res.data.message || 'Tạo tài khoản staff thành công.')
+    } catch (error) {
+      alert(getApiErrorMessage(error, 'Tạo tài khoản staff thất bại.'))
+    } finally {
+      setCreatingStaff(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -67,8 +179,9 @@ export default function AdminUsersPage() {
         r.phone.toLowerCase().includes(q)
       let roleOk = true
       if (filter === 'admin') roleOk = r.role === 'admin'
+      if (filter === 'staff') roleOk = r.role === 'staff'
       if (filter === 'user') roleOk = r.role === 'user'
-      const stOk = filter === 'all' || filter === 'admin' || filter === 'user' ? true : r.status === filter
+      const stOk = filter === 'all' || filter === 'admin' || filter === 'staff' || filter === 'user' ? true : r.status === filter
       return match && roleOk && stOk
     })
   }, [rows, search, filter])
@@ -79,6 +192,7 @@ export default function AdminUsersPage() {
       active: rows.filter(r => r.status === 'active').length,
       blocked: rows.filter(r => r.status === 'blocked').length,
       admin: rows.filter(r => r.role === 'admin').length,
+      staff: rows.filter(r => r.role === 'staff').length,
       user: rows.filter(r => r.role === 'user').length,
     }),
     [rows]
@@ -94,14 +208,15 @@ export default function AdminUsersPage() {
             <span>/</span>
             <span className="text-violet-400">Người dùng</span>
           </div>
-          <p className="mt-3 max-w-2xl text-sm text-slate-500">Thành viên và quyền truy cập. Dữ liệu mẫu — nối API khi backend sẵn sàng.</p>
+          <p className="mt-3 max-w-2xl text-sm text-slate-500">Danh sách người dùng lấy trực tiếp từ backend. Admin có thể tạo thêm tài khoản staff.</p>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
           {[
             { label: 'Tổng tài khoản', value: counts.all, tone: 'text-white' },
             { label: 'Hoạt động', value: counts.active, tone: 'text-emerald-300' },
             { label: 'Đã khóa', value: counts.blocked, tone: 'text-red-300' },
             { label: 'Khách', value: counts.user, tone: 'text-slate-300' },
+            { label: 'Staff', value: counts.staff, tone: 'text-cyan-300' },
             { label: 'Admin', value: counts.admin, tone: 'text-violet-300' },
           ].map(s => (
             <div key={s.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
@@ -113,6 +228,56 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0b1019] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.24)]">
+        <form onSubmit={handleCreateStaff} className="mb-4 grid grid-cols-1 gap-2 border-b border-white/10 pb-4 lg:grid-cols-6">
+          <input
+            value={staffForm.full_name}
+            onChange={e => setStaffForm(prev => ({ ...prev, full_name: e.target.value }))}
+            placeholder="Họ tên staff *"
+            className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm outline-none focus:border-violet-500/40"
+          />
+          <input
+            value={staffForm.email}
+            onChange={e => setStaffForm(prev => ({ ...prev, email: e.target.value }))}
+            placeholder="Email *"
+            className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm outline-none focus:border-violet-500/40"
+          />
+          <input
+            value={staffForm.password}
+            onChange={e => setStaffForm(prev => ({ ...prev, password: e.target.value }))}
+            placeholder="Mật khẩu *"
+            type="password"
+            className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm outline-none focus:border-violet-500/40"
+          />
+          <input
+            value={staffForm.phone}
+            onChange={e => setStaffForm(prev => ({ ...prev, phone: e.target.value }))}
+            placeholder="Số điện thoại"
+            className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm outline-none focus:border-violet-500/40"
+          />
+          <input
+            value={staffForm.avatar_url}
+            onChange={e => setStaffForm(prev => ({ ...prev, avatar_url: e.target.value }))}
+            placeholder="Avatar URL"
+            className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm outline-none focus:border-violet-500/40"
+          />
+          <button
+            type="submit"
+            disabled={creatingStaff}
+            className="h-10 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 text-xs font-black uppercase tracking-wide text-white disabled:opacity-60"
+          >
+            {creatingStaff ? 'Đang tạo...' : 'Tạo staff'}
+          </button>
+        </form>
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => void fetchStaffs()}
+            disabled={loadingUsers}
+            className="rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-300 disabled:opacity-60"
+          >
+            {loadingUsers ? 'Đang tải...' : 'Reload staff'}
+          </button>
+        </div>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="relative w-full xl:w-[28rem]">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600"><SearchIcon /></span>
@@ -129,6 +294,7 @@ export default function AdminUsersPage() {
             <FilterTab active={filter === 'active'} label="Hoạt động" count={counts.active} onClick={() => setFilter('active')} />
             <FilterTab active={filter === 'blocked'} label="Đã khóa" count={counts.blocked} onClick={() => setFilter('blocked')} />
             <FilterTab active={filter === 'user'} label="Khách" count={counts.user} onClick={() => setFilter('user')} />
+            <FilterTab active={filter === 'staff'} label="Staff" count={counts.staff} onClick={() => setFilter('staff')} />
             <FilterTab active={filter === 'admin'} label="Admin" count={counts.admin} onClick={() => setFilter('admin')} />
           </div>
         </div>
@@ -148,8 +314,8 @@ export default function AdminUsersPage() {
                 <p className="truncate font-bold text-white">{r.full_name}</p>
                 <p className="truncate text-slate-400">{r.email}</p>
                 <p className="text-slate-400">{r.phone}</p>
-                <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-black ${r.role === 'admin' ? 'bg-violet-500/20 text-violet-300' : 'bg-white/10 text-slate-400'}`}>
-                  {r.role === 'admin' ? 'Admin' : 'Khách'}
+                <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-black ${r.role === 'admin' ? 'bg-violet-500/20 text-violet-300' : r.role === 'staff' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/10 text-slate-400'}`}>
+                  {r.role === 'admin' ? 'Admin' : r.role === 'staff' ? 'Staff' : 'Khách'}
                 </span>
                 <p className="text-violet-300/90">{r.points}</p>
                 <p className="text-slate-400">{r.membership}</p>
@@ -169,266 +335,4 @@ export default function AdminUsersPage() {
     </section>
   )
 
-"use client";
-
-import { useState } from "react";
-import ModalChinhSuaUser from "@/src/component/admin/modalChinhSuaUser";
-import ModalThemNguoiDung from "@/src/component/admin/modalThemNguoiDung";
-import UserRoleDropdown from "@/src/component/admin/userRoleDropdown";
-
-export type AdminUserInfo = {
-  email: string;
-  id: number;
-  memberRank: "GOLD" | "SILVER" | "VIP";
-  name: string;
-  phone: string;
-  points: string;
-  role: "admin" | "customer" | "staff";
-  status: string;
-};
-
-const users: AdminUserInfo[] = [
-  {
-    email: "an.nguyen@gmail.com",
-    id: 1,
-    memberRank: "VIP",
-    name: "Nguyễn Văn An",
-    phone: "0901234567",
-    points: "15.000",
-    role: "customer",
-    status: "Hoạt động",
-  },
-  {
-    email: "binh.tran@gmail.com",
-    id: 2,
-    memberRank: "GOLD",
-    name: "Trần Thị Bình",
-    phone: "0912345678",
-    points: "8.500",
-    role: "customer",
-    status: "Hoạt động",
-  },
-  {
-    email: "cuong.staff@cinepro.vn",
-    id: 3,
-    memberRank: "SILVER",
-    name: "Lê Văn Cường",
-    phone: "0923456789",
-    points: "0",
-    role: "staff",
-    status: "Hoạt động",
-  },
-  {
-    email: "dung.admin@cinepro.vn",
-    id: 4,
-    memberRank: "VIP",
-    name: "Phạm Thị Dung",
-    phone: "0934567890",
-    points: "0",
-    role: "admin",
-    status: "Hoạt động",
-  },
-];
-
-const roleLabel: Record<AdminUserInfo["role"], string> = {
-  admin: "Admin",
-  customer: "Khách hàng",
-  staff: "Staff",
-};
-
-const roleBadgeClass: Record<AdminUserInfo["role"], string> = {
-  admin: "bg-purple-500/20 text-purple-400",
-  customer: "bg-gray-500/20 text-gray-400",
-  staff: "bg-blue-500/20 text-blue-400",
-};
-
-const rankBadgeClass: Record<AdminUserInfo["memberRank"], string> = {
-  GOLD: "bg-orange-500/20 text-orange-400",
-  SILVER: "bg-gray-500/20 text-gray-400",
-  VIP: "bg-yellow-500/20 text-yellow-400",
-};
-
-const roleFilterOptions = [
-  { label: "Tất cả vai trò", value: "" },
-  { label: "Admin", value: "admin" },
-  { label: "Staff", value: "staff" },
-  { label: "Customer", value: "customer" },
-];
-
-function normalize(value: string) {
-  return value.toLowerCase().trim();
-}
-
-export default function AdminUsersPage() {
-  const [addUserModalOpen, setAddUserModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<AdminUserInfo | null>(null);
-  const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-
-  const visibleUsers = users.filter((user) => {
-    const normalizedQuery = normalize(query);
-    const matchesQuery =
-      !normalizedQuery ||
-      normalize(user.name).includes(normalizedQuery) ||
-      normalize(user.email).includes(normalizedQuery) ||
-      user.phone.includes(normalizedQuery);
-    const matchesRole = !roleFilter || user.role === roleFilter;
-
-    return matchesQuery && matchesRole;
-  });
-
-  return (
-    <>
-      <div className="flex h-full min-w-0 flex-1 flex-col bg-black text-white">
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between border-b border-gray-800/50 bg-gray-900/20 px-4 py-4 md:px-8">
-            <div>
-              <h3 className="text-lg font-bold text-white">Người dùng</h3>
-              <div className="mt-0.5 flex items-center gap-2">
-                <span className="text-[10px] uppercase text-gray-500">Dashboard</span>
-                <span className="text-[10px] text-gray-600">/</span>
-                <span className="text-[10px] font-bold uppercase text-purple-400">Người dùng</span>
-              </div>
-            </div>
-            <div className="hidden text-right sm:block">
-              <p className="text-xs text-gray-500">Hôm nay, 10/05/2026</p>
-            </div>
-          </div>
-
-          <div className="p-4 md:p-8">
-            <div className="space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-2xl font-bold">Quản lý Người dùng</h2>
-                <button
-                  type="button"
-                  onClick={() => setAddUserModalOpen(true)}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 font-medium transition hover:opacity-90"
-                >
-                  <span>➕</span> Thêm người dùng
-                </button>
-              </div>
-
-              <div className="mb-4 flex flex-col gap-4 lg:flex-row">
-                <div className="relative flex-1">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
-                    aria-hidden="true"
-                  >
-                    <path d="m21 21-4.34-4.34" />
-                    <circle cx="11" cy="11" r="8" />
-                  </svg>
-                  <input
-                    placeholder="Tìm theo tên, email, SĐT..."
-                    className="w-full rounded-lg border border-gray-700 bg-gray-800 py-2 pl-10 pr-4 outline-none transition focus:border-purple-500"
-                    type="text"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-                <UserRoleDropdown
-                  className="w-full lg:w-52"
-                  options={roleFilterOptions}
-                  value={roleFilter}
-                  onChange={setRoleFilter}
-                />
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/50 backdrop-blur">
-                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <table className="w-full min-w-[56rem]">
-                    <thead>
-                      <tr className="bg-gray-800/50 text-left text-sm text-gray-400">
-                        <th className="px-4 py-3 font-medium">Người dùng</th>
-                        <th className="px-4 py-3 font-medium">Liên hệ</th>
-                        <th className="px-4 py-3 font-medium">Vai trò</th>
-                        <th className="px-4 py-3 font-medium">Hạng TV</th>
-                        <th className="px-4 py-3 font-medium">Điểm</th>
-                        <th className="px-4 py-3 font-medium">Trạng thái</th>
-                        <th className="px-4 py-3 font-medium">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {visibleUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-800/50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-pink-600 font-bold">
-                                {user.name.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="font-medium">{user.name}</p>
-                                <p className="text-xs text-gray-400">ID: {user.id}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-sm">{user.email}</p>
-                            <p className="text-xs text-gray-400">{user.phone}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`rounded-full px-2 py-1 text-xs ${roleBadgeClass[user.role]}`}>
-                              {roleLabel[user.role]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`rounded-full px-2 py-1 text-xs ${rankBadgeClass[user.memberRank]}`}>
-                              {user.memberRank}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-medium text-yellow-500">{user.points}</td>
-                          <td className="px-4 py-3">
-                            <span className="rounded-full bg-green-500/20 px-2 py-1 text-xs text-green-400">
-                              {user.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setEditingUser(user)}
-                                className="rounded p-1 transition hover:bg-gray-700"
-                              >
-                                ✏️
-                              </button>
-                              <button type="button" className="rounded p-1 transition hover:bg-yellow-600">
-                                🔒
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {visibleUsers.length === 0 ? (
-                        <tr>
-                          <td className="px-4 py-8 text-center text-sm text-gray-500" colSpan={7}>
-                            Không tìm thấy người dùng phù hợp.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <ModalThemNguoiDung open={addUserModalOpen} onClose={() => setAddUserModalOpen(false)} />
-      <ModalChinhSuaUser
-        key={editingUser?.id ?? "closed"}
-        user={editingUser}
-        open={Boolean(editingUser)}
-        onClose={() => setEditingUser(null)}
-      />
-    </>
-  );
 }

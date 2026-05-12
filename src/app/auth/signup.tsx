@@ -5,13 +5,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CoinIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, TicketIcon, UserIcon, UserPlusIcon, GoogleIcon } from "@/public/icons/AuthIcons";
+import type { RegisterRequest } from "@/src/interface/auth";
+
 import { API_GG, API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
 import ModalOTP from "@/src/app/auth/modalOtp";
 import type { RegisterRequest } from "@/src/interface/auth";
 import { getRoleHomePath } from "@/src/lib/auth-shared";
 import { getApiErrorMessage, hasLoginData, markGoogleLogin, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
 
-type RegisterErrors = Partial<Record<keyof RegisterRequest, string>>;
+
+type SignUpFormValues = Omit<RegisterRequest, "gender"> & { gender: Gender | "" };
+
+type RegisterErrors = Partial<Record<keyof SignUpFormValues, string>>;
+
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: Gender.MALE, label: "Nam" },
+  { value: Gender.FEMALE, label: "Nữ" },
+  { value: Gender.OTHER, label: "Khác" },
+];
 
 type SignUpPageProps = {
   compact?: boolean;
@@ -19,7 +30,7 @@ type SignUpPageProps = {
   onSwitchMode?: (mode: "signin" | "signup") => void;
 };
 
-const initialSignUpValues: RegisterRequest = {
+const initialSignUpValues: SignUpFormValues = {
   birth_date: "",
   email: "",
   full_name: "",
@@ -28,7 +39,7 @@ const initialSignUpValues: RegisterRequest = {
   phone: "",
 };
 
-function validateSignUp(values: RegisterRequest): RegisterErrors {
+function validateSignUp(values: SignUpFormValues): RegisterErrors {
   const errors: RegisterErrors = {};
   const email = values.email.trim();
   const fullName = values.full_name.trim();
@@ -79,12 +90,23 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
   const [otpError, setOtpError] = useState("");
   const [otpSubmitting, setOtpSubmitting] = useState(false);
 
+
+  function handleSignUpSubmit(_values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
+    actions.setSubmitting(false);
+
+  async function handleSignUpSubmit(values: SignUpFormValues, actions: FormikHelpers<SignUpFormValues>) {
+
   async function handleSignUpSubmit(values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
+
     const payload: RegisterRequest = {
       birth_date: values.birth_date,
       email: values.email.trim(),
       full_name: values.full_name.trim(),
+
+      gender: values.gender as Gender,
+
       gender: values.gender,
+
       password: values.password,
       phone: values.phone.trim(),
     };
@@ -109,8 +131,8 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
       return;
     }
 
-    if (otp.length < 4) {
-      setOtpError("Vui lòng nhập đầy đủ mã OTP.");
+    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+      setOtpError("Mã OTP phải gồm đúng 6 chữ số.");
       return;
     }
 
@@ -118,7 +140,10 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
     setOtpError("");
 
     try {
-      const response = await API_VerifyOTP({ email: pendingRegister.email, otp });
+      const response = await API_VerifyOTP({
+        email: pendingRegister.email,
+        otp_code: String(otp).trim(),
+      });
 
       setOtpModalOpen(false);
       setPendingRegister(null);
@@ -221,6 +246,8 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
 
             <div className="flex-1 p-5 sm:p-7">
               <Formik<RegisterRequest> initialValues={initialSignUpValues} validate={validateSignUp} onSubmit={handleSignUpSubmit}>
+                {({ errors, isSubmitting, touched, values }) => (
+
                 {({ errors, isSubmitting, status, touched, values }) => (
                   <Form className="space-y-4">
                     <div>
@@ -339,12 +366,12 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                           Giới tính <span className="text-red-500">*</span>
                         </p>
                         <div className="flex gap-3">
-                          {["Nam", "Nữ", "Khác"].map((gender) => {
-                            const isSelected = values.gender === gender;
+                          {GENDER_OPTIONS.map(({ value, label }) => {
+                            const isSelected = values.gender === value;
 
                             return (
                               <label
-                                key={gender}
+                                key={value}
                                 className={`flex-1 cursor-pointer rounded-xl border px-4 py-3 text-center transition-all ${isSelected
                                     ? "border-yellow-500 bg-yellow-500/10 text-yellow-400"
                                     : "border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600"
@@ -353,10 +380,10 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                                 <Field
                                   type="radio"
                                   name="gender"
-                                  value={gender}
+                                  value={value}
                                   className="hidden"
                                 />
-                                {gender}
+                                {label}
                               </label>
                             );
                           })}

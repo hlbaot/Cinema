@@ -1,5 +1,11 @@
 import { User } from "./user";
 
+export enum Gender {
+  MALE = "male",
+  FEMALE = "female",
+  OTHER = "other",
+}
+
 export interface LoginRequest {
   email: string;
   password: string;

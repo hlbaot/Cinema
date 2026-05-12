@@ -57,11 +57,309 @@ export interface GetShowtimesByWeekParams {
   date?: string
 }
 
+export interface GetDraftShowtimesParams {
+  page?: number
+  limit?: number
+}
+
+export interface ShowtimeFormatOption {
+  value: string
+  label: string
+}
+
+export type ShowtimeSeatStatus = 'available' | 'reserved' | 'booked' | 'blocked'
+
+export interface ShowtimeSeatItemDto {
+  id: string
+  showtime_id: string
+  seat_id: string
+  seat_row: string
+  seat_number: number
+  type: string
+  price: number
+  status: ShowtimeSeatStatus | string
+}
+
+export interface DraftShowtimesPaginationDto {
+  message: string
+  showtimes: ShowtimeDto[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+  current_page: number
+  next_page: number | null
+  previous_page: number | null
+  has_next_page: boolean
+  has_previous_page: boolean
+}
+
+export interface DraftShowtimesResponse {
+  success: boolean
+  data: DraftShowtimesPaginationDto
+}
+
+export interface PublishAllShowtimeDraftByDateResponseDto {
+  success: boolean
+  data: {
+    message: string
+    total_published: number
+    showtimes: ShowtimeDto[]
+  }
+}
+
+export interface PublishShowtimeResponseDto {
+  success: boolean
+  data: {
+    message: string
+    showtime: ShowtimeDto
+  }
+}
+
+function parseShowtimeFormats(raw: unknown): ShowtimeFormatOption[] {
+  if (!Array.isArray(raw)) return []
+
+  return raw
+    .map(item => {
+      if (!item || typeof item !== 'object') return null
+      const row = item as Record<string, unknown>
+      if (typeof row.value !== 'string' || typeof row.label !== 'string') return null
+
+      return {
+        value: row.value,
+        label: row.label,
+      }
+    })
+    .filter((item): item is ShowtimeFormatOption => item !== null)
+}
+
+function parseShowtimeSeats(raw: unknown): ShowtimeSeatItemDto[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object'
+      ? ((raw as Record<string, unknown>).data as unknown[] | undefined) ??
+        ((raw as Record<string, unknown>).items as unknown[] | undefined) ??
+        ((raw as Record<string, unknown>).seats as unknown[] | undefined)
+      : undefined
+
+  if (!Array.isArray(list)) return []
+
+  return list
+    .map(item => {
+      if (!item || typeof item !== 'object') return null
+      const row = item as Record<string, unknown>
+
+      if (
+        typeof row.id !== 'string' ||
+        typeof row.showtime_id !== 'string' ||
+        typeof row.seat_id !== 'string' ||
+        typeof row.seat_row !== 'string' ||
+        typeof row.seat_number !== 'number' ||
+        typeof row.type !== 'string' ||
+        typeof row.price !== 'number' ||
+        typeof row.status !== 'string'
+      ) {
+        return null
+      }
+
+      return {
+        id: row.id,
+        showtime_id: row.showtime_id,
+        seat_id: row.seat_id,
+        seat_row: row.seat_row,
+        seat_number: row.seat_number,
+        type: row.type,
+        price: row.price,
+        status: row.status,
+      }
+    })
+    .filter((item): item is ShowtimeSeatItemDto => item !== null)
+}
+
+function parseDraftShowtimes(raw: unknown): DraftShowtimesPaginationDto {
+  const fallback: DraftShowtimesPaginationDto = {
+    message: '',
+    showtimes: [],
+    total: 0,
+    page: 1,
+    limit: 10,
+    total_pages: 0,
+    current_page: 1,
+    next_page: null,
+    previous_page: null,
+    has_next_page: false,
+    has_previous_page: false,
+  }
+
+  if (!raw || typeof raw !== 'object') return fallback
+
+  const top = raw as Record<string, unknown>
+  const data = (top.data && typeof top.data === 'object' ? top.data : top) as Record<string, unknown>
+  const showtimes = Array.isArray(data.showtimes) ? (data.showtimes as ShowtimeDto[]) : []
+
+  return {
+    message: typeof data.message === 'string' ? data.message : fallback.message,
+    showtimes,
+    total: typeof data.total === 'number' ? data.total : fallback.total,
+    page: typeof data.page === 'number' ? data.page : fallback.page,
+    limit: typeof data.limit === 'number' ? data.limit : fallback.limit,
+    total_pages: typeof data.total_pages === 'number' ? data.total_pages : fallback.total_pages,
+    current_page: typeof data.current_page === 'number' ? data.current_page : fallback.current_page,
+    next_page: typeof data.next_page === 'number' ? data.next_page : null,
+    previous_page: typeof data.previous_page === 'number' ? data.previous_page : null,
+    has_next_page: typeof data.has_next_page === 'boolean' ? data.has_next_page : fallback.has_next_page,
+    has_previous_page: typeof data.has_previous_page === 'boolean' ? data.has_previous_page : fallback.has_previous_page,
+  }
+}
+
+function parsePublishDraftShowtimes(raw: unknown): PublishAllShowtimeDraftByDateResponseDto['data'] {
+  const fallback: PublishAllShowtimeDraftByDateResponseDto['data'] = {
+    message: '',
+    total_published: 0,
+    showtimes: [],
+  }
+
+  if (!raw || typeof raw !== 'object') return fallback
+
+  const top = raw as Record<string, unknown>
+  const data = (top.data && typeof top.data === 'object' ? top.data : top) as Record<string, unknown>
+
+  return {
+    message: typeof data.message === 'string' ? data.message : fallback.message,
+    total_published: typeof data.total_published === 'number' ? data.total_published : fallback.total_published,
+    showtimes: Array.isArray(data.showtimes) ? (data.showtimes as ShowtimeDto[]) : fallback.showtimes,
+  }
+}
+
+function parsePublishOneDraftShowtime(raw: unknown): PublishShowtimeResponseDto['data'] {
+  const fallback: PublishShowtimeResponseDto['data'] = {
+    message: '',
+    showtime: {},
+  }
+
+  if (!raw || typeof raw !== 'object') return fallback
+
+  const top = raw as Record<string, unknown>
+  const data = (top.data && typeof top.data === 'object' ? top.data : top) as Record<string, unknown>
+  const showtime = data.showtime
+
+  return {
+    message: typeof data.message === 'string' ? data.message : fallback.message,
+    showtime: showtime && typeof showtime === 'object' ? (showtime as ShowtimeDto) : fallback.showtime,
+  }
+}
+
 export const API_GetShowtimesByWeek = async (params: GetShowtimesByWeekParams = {}): Promise<ShowtimeDto[]> => {
   const res = await axios.get(`${API_URL}/api/v1/showtimes/week`, {
     params,
   })
   return parseShowtimes(res.data)
+}
+
+export const API_GetShowtimeFormats = async (): Promise<ShowtimeFormatOption[]> => {
+  const res = await axios.get(`${API_URL}/api/v1/showtimes/formats`)
+  return parseShowtimeFormats(res.data)
+}
+
+export const API_GetShowtimeSeats = async (showtimeId: string): Promise<ShowtimeSeatItemDto[]> => {
+  const res = await axios.get(`${API_URL}/api/v1/showtimes/${showtimeId}/seats`)
+  return parseShowtimeSeats(res.data)
+}
+
+export interface LockShowtimeSeatsRequest {
+  /** ID các showtime_seat cần khóa tạm thời. */
+  showtime_seat_ids: string[]
+}
+
+export type LockShowtimeSeatsResponse = boolean
+
+export const API_LockShowtimeSeats = async (
+  showtimeId: string,
+  body: LockShowtimeSeatsRequest,
+  accessToken?: string,
+): Promise<LockShowtimeSeatsResponse> => {
+  const headers: Record<string, string> = {}
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+
+  const res = await axios.post<LockShowtimeSeatsResponse>(`${API_URL}/api/v1/showtimes/${showtimeId}/seats/lock`, body, { headers })
+  return res.data
+}
+
+export const API_GetDraftShowtimes = async (
+  params: GetDraftShowtimesParams = {},
+  accessToken?: string,
+): Promise<DraftShowtimesResponse> => {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.get(`${API_URL}/api/v1/showtimes/drafts`, {
+    params,
+    headers,
+  })
+
+  return {
+    success: Boolean((res.data as { success?: unknown })?.success),
+    data: parseDraftShowtimes(res.data),
+  }
+}
+
+export const API_GenerateDraftShowtimes = async (
+  params: GetDraftShowtimesParams = {},
+  accessToken?: string,
+): Promise<DraftShowtimesResponse> => {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.post(
+    `${API_URL}/api/v1/showtimes/drafts/generate`,
+    {
+      page: params.page,
+      limit: params.limit,
+    },
+    { headers },
+  )
+
+  return {
+    success: Boolean((res.data as { success?: unknown })?.success),
+    data: parseDraftShowtimes(res.data),
+  }
+}
+
+export const API_PublishAllShowtimeDrafts = async (
+  accessToken?: string,
+): Promise<PublishAllShowtimeDraftByDateResponseDto> => {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.post(`${API_URL}/api/v1/showtimes/drafts/publish`, undefined, { headers })
+
+  return {
+    success: Boolean((res.data as { success?: unknown })?.success),
+    data: parsePublishDraftShowtimes(res.data),
+  }
+}
+
+export const API_PublishShowtimeDraft = async (
+  showtimeId: string,
+  accessToken?: string,
+): Promise<PublishShowtimeResponseDto> => {
+  const headers: Record<string, string> = {}
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const res = await axios.post(`${API_URL}/api/v1/showtimes/drafts/${showtimeId}/publish`, undefined, { headers })
+
+  return {
+    success: Boolean((res.data as { success?: unknown })?.success),
+    data: parsePublishOneDraftShowtime(res.data),
+  }
 }
 
 export function getMovieId(showtime: ShowtimeDto): string | undefined {

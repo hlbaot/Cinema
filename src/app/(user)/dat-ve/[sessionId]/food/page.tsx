@@ -26,6 +26,10 @@ export default function FoodPage() {
     () => searchParams.get('seats')?.split(',').filter(Boolean) || [],
     [searchParams],
   )
+  const selectedSeatIds = useMemo(
+    () => searchParams.get('seatIds')?.split(',').filter(Boolean) || [],
+    [searchParams],
+  )
   const ticketTotal = Number(searchParams.get('ticketTotal') || 0)
   /** Số lượng theo product id (local state, chưa gọi API giữ giỏ). */
   const [quantities, setQuantities] = useState<Record<string, number>>({})
@@ -82,6 +86,7 @@ export default function FoodPage() {
       movieId,
       roomId,
       seats: selectedSeats.join(','),
+      seatIds: selectedSeatIds.join(','),
       ticketTotal: String(ticketTotal),
       foodTotal: String(foodTotal),
       total: String(orderTotal),
