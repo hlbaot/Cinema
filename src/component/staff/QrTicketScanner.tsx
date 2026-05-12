@@ -1,5 +1,9 @@
 'use client'
 
+/**
+ * Quét QR vé bằng html5-qrcode (dynamic import để không nặng bundle khi không dùng).
+ * Luồng: bật camera → đọc 1 mã → dừng camera → gọi onScan(text). Ref giữ callback mới nhất mà không reset effect.
+ */
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Html5Qrcode } from 'html5-qrcode'
 import { Camera, CameraOff, Loader2 } from 'lucide-react'
@@ -24,6 +28,7 @@ export default function QrTicketScanner({ onScan, disabled }: Props) {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Khi open=true: khởi tạo scanner; unmount/đóng → cleanup stop/clear để tránh rò camera.
   useEffect(() => {
     if (!open) return
 
@@ -48,6 +53,7 @@ export default function QrTicketScanner({ onScan, disabled }: Props) {
 
         const config = { fps: 8, qrbox: { width: 260, height: 260 } as const }
 
+        // Chỉ xử lý một lần mỗi lần mở camera; tránh double-fire từ thư viện.
         const finish = async (text: string) => {
           if (doneRef.current) return
           doneRef.current = true
@@ -75,6 +81,7 @@ export default function QrTicketScanner({ onScan, disabled }: Props) {
         }
 
         try {
+          // Ưu tiên camera sau (điện thoại); thất bại thì thử camera đầu tiên trong danh sách.
           await scanner.start({ facingMode: 'environment' }, config, onOk, () => {})
         } catch {
           const cams = await Html5Qrcode.getCameras()

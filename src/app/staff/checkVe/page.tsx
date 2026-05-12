@@ -1,9 +1,14 @@
 'use client'
 
+/**
+ * Trang nhân viên: nhập mã vé hoặc quét QR → gọi API_VerifyTicket.
+ * Kết quả hiển thị hợp lệ/không + chi tiết (nếu có). Mã DEMO* xử lý cục bộ (xem API_Staff).
+ */
 import { useCallback, useState } from 'react'
 import { API_VerifyTicket, type TicketVerifyDetail } from '@/src/api/API_Staff'
 import QrTicketScanner from '@/src/component/staff/QrTicketScanner'
 
+/** Bảng thông tin vé sau khi verify thành công (field nào có thì hiện). */
 function DetailBlock({ detail }: { detail: TicketVerifyDetail }) {
   return (
     <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
@@ -48,6 +53,7 @@ export default function StaffCheckTicketPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Awaited<ReturnType<typeof API_VerifyTicket>> | null>(null)
 
+  // Dùng chung cho form nhập tay và QrTicketScanner.onScan.
   const runVerify = useCallback(async (rawCode: string) => {
     const c = rawCode.trim()
     if (!c) return

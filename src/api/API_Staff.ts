@@ -104,6 +104,7 @@ export async function API_VerifyTicket(code: string): Promise<TicketVerifyOutcom
   }
 }
 
+/** Chuẩn hoá một dòng bán vé từ API (snake_case / camelCase / booking_id). */
 function mapSaleRow(raw: Record<string, unknown>): StaffTicketSaleDto | null {
   const id = typeof raw.id === 'string' ? raw.id : typeof raw.booking_id === 'string' ? raw.booking_id : null
   if (!id) return null

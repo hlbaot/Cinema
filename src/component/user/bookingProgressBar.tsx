@@ -1,5 +1,9 @@
 'use client'
 
+/**
+ * Thanh 5 bước đặt vé. currentStep là index 0-based khớp thứ tự trong mảng steps
+ * (vd: trang chọn ghế dùng 1, trang food dùng 2 — xem từng page).
+ */
 interface ProgressBarProps {
   currentStep: number
 }

@@ -1,5 +1,9 @@
 'use client'
 
+/**
+ * Bước đặt vé: chọn đồ ăn/nước. Query giữ movieId, roomId, seats, ticketTotal từ bước chọn ghế.
+ * Tải sản phẩm ACTIVE, cộng tiền → đẩy sang /payment kèm food JSON + tổng.
+ */
 import { useEffect, useMemo, useState } from 'react'
 import { Minus, Plus, ShoppingCart } from 'lucide-react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -23,6 +27,7 @@ export default function FoodPage() {
     [searchParams],
   )
   const ticketTotal = Number(searchParams.get('ticketTotal') || 0)
+  /** Số lượng theo product id (local state, chưa gọi API giữ giỏ). */
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [foodItems, setFoodItems] = useState<ProductDto[]>([])
   const [loadState, setLoadState] = useState<'loading' | 'error' | 'ready'>('loading')
@@ -36,6 +41,7 @@ export default function FoodPage() {
         setLoadError(null)
         const all = await API_GetProducts()
         if (cancelled) return
+        // Chỉ hiển thị món đang bán; backend có thể trả cả INACTIVE.
         const active = all.filter(p => p.status === 'ACTIVE')
         setFoodItems(active)
         setLoadState('ready')
@@ -70,6 +76,7 @@ export default function FoodPage() {
     }))
   }
 
+  // Truyền tiếp context đặt vé + chi tiết đồ ăn (JSON trong query — đủ cho demo; production có thể dùng session/store).
   const goToPayment = () => {
     const paymentParams = new URLSearchParams({
       movieId,
