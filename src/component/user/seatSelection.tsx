@@ -1,5 +1,9 @@
 'use client'
 
+/**
+ * Chọn ghế theo suất (sessionId): dữ liệu ghế từ useRoomSeats, ghép trạng thái đã chọn local.
+ * Hết giờ countdown → khóa chọn. Xác nhận độ tuổi → chuyển bước food với query ghế + ticketTotal.
+ */
 import React, { useState, useEffect, useMemo } from 'react'
 import NextImage from 'next/image'
 import { Info } from 'lucide-react'
@@ -34,6 +38,7 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
   const [countdown, setCountdown] = useState(300)
   const isExpired = countdown === 0
 
+  // Map API → model UI: ghế đang chọn override trạng thái thành 'selected'.
   const seats: Seat[] = useMemo(() => apiSeats.map(s => {
     const id = s.seat_id || s.id
     return {

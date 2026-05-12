@@ -2,12 +2,13 @@
 
 import Cookies from "js-cookie";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/src/lib/utils";
 
 const staffLinks = [
-  { href: "/staff/checkVe", label: "Check ve" },
-  { href: "/staff/qlyVe", label: "Quan ly ve" },
-  { href: "/staff/qlyBapNuoc", label: "Quan ly bap nuoc" },
+  { href: "/staff/checkVe", label: "Check vé" },
+  { href: "/staff/qlyVe", label: "Quản lý bán vé" },
+  { href: "/staff/qlyBapNuoc", label: "Quản lý bán nước" },
 ];
 
 function LogoutIcon() {
@@ -22,35 +23,45 @@ function LogoutIcon() {
 
 export default function StaffNavbar() {
   const router = useRouter();
+  const pathname = usePathname();
 
   function handleLogout() {
     Cookies.remove("ROLE");
     Cookies.remove("USER_NAME");
     Cookies.remove("USER_POINTS");
     Cookies.remove("MEMBERSHIP_LEVEL");
-    router.push("/auth/signin");
+    router.push("/trangChu");
     router.refresh();
   }
 
   return (
-    <aside className="min-h-screen w-72 border-r border-emerald-200 bg-emerald-50 px-5 py-6">
-      <div className="mb-6 text-xl font-semibold text-emerald-950">Staff Panel</div>
-      <nav className="flex flex-col gap-2">
-        {staffLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="rounded-xl px-4 py-3 text-sm font-medium text-emerald-800 transition hover:bg-emerald-600 hover:text-white"
-          >
-            {link.label}
-          </Link>
-        ))}
+    <aside className="min-h-screen w-72 shrink-0 border-r border-zinc-800/80 bg-zinc-900/90 px-5 py-6 backdrop-blur-sm">
+      <div className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/90">Rạp</div>
+      <div className="mb-6 text-xl font-bold tracking-tight text-white">Nhân viên</div>
+      <nav className="flex flex-col gap-1.5">
+        {staffLinks.map((link) => {
+          const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "rounded-xl px-4 py-3 text-sm font-semibold transition",
+                active
+                  ? "border border-emerald-500/35 bg-emerald-500/15 text-emerald-300 shadow-[0_0_24px_-8px_rgba(16,185,129,0.45)]"
+                  : "text-zinc-400 hover:bg-zinc-800/80 hover:text-white"
+              )}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
       </nav>
-      <div className="mt-6 border-t border-emerald-200 pt-4">
+      <div className="mt-8 border-t border-zinc-800 pt-4">
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-100 hover:text-red-700"
+          className="flex w-full items-center gap-3 rounded-xl border border-red-500/25 bg-red-950/40 px-4 py-3 text-sm font-semibold text-red-300 transition hover:border-red-500/40 hover:bg-red-950/70 hover:text-red-200"
         >
           <LogoutIcon />
           <span>Đăng xuất</span>
