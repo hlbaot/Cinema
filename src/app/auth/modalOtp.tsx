@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -11,33 +13,92 @@ const style = {
   outline: 'none',
 };
 
+type ModalOTPProps = {
+  email?: string;
+  error?: string;
+  handleClose: () => void;
+  isSubmitting?: boolean;
+  onResend?: () => void;
+  onVerify: (otp: string) => void;
+  open: boolean;
+};
+
 const ModalOTP = ({
+  email,
+  error,
   open,
   handleClose,
-}: {
-  open: boolean;
-  handleClose: () => void;
-}) => {
+  isSubmitting = false,
+  onResend,
+  onVerify,
+}: ModalOTPProps) => {
+  const [otpValues, setOtpValues] = React.useState(["", "", "", "", "", ""]);
+  const inputRefs = React.useRef<Array<HTMLInputElement | null>>([]);
+
+  React.useEffect(() => {
+    if (open) {
+      setOtpValues(["", "", "", "", "", ""]);
+      window.setTimeout(() => inputRefs.current[0]?.focus(), 80);
+    }
+  }, [open]);
+
+  function handleOtpChange(index: number, value: string) {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const nextValues = [...otpValues];
+
+    nextValues[index] = digit;
+    setOtpValues(nextValues);
+
+    if (digit && index < inputRefs.current.length - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handleOtpKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Backspace" && !otpValues[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onVerify(otpValues.join(""));
+  }
+
   return (
     <Modal open={open} onClose={handleClose}>
       <Box sx={style}>
         <StyledWrapper>
-          <form className="otp-Form">
+          <form className="otp-Form" onSubmit={handleSubmit}>
             <span className="mainHeading">Enter OTP</span>
 
             <p className="otpSubheading">
-              We have sent a verification code to your mobile number
+              We have sent a verification code to {email || "your email"}
             </p>
 
             <div className="inputContainer">
-              <input required maxLength={1} type="text" className="otp-input" />
-              <input required maxLength={1} type="text" className="otp-input" />
-              <input required maxLength={1} type="text" className="otp-input" />
-              <input required maxLength={1} type="text" className="otp-input" />
+              {otpValues.map((value, index) => (
+                <input
+                  key={`otp-${index}`}
+                  ref={(element) => {
+                    inputRefs.current[index] = element;
+                  }}
+                  required
+                  maxLength={1}
+                  inputMode="numeric"
+                  type="text"
+                  className="otp-input"
+                  value={value}
+                  onChange={(event) => handleOtpChange(index, event.target.value)}
+                  onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                />
+              ))}
             </div>
 
-            <button className="verifyButton" type="submit">
-              Verify
+            {error ? <p className="errorText">{error}</p> : null}
+
+            <button className="verifyButton" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Verifying..." : "Verify"}
             </button>
 
             <button
@@ -49,8 +110,8 @@ const ModalOTP = ({
             </button>
 
             <p className="resendNote">
-              Didn't receive the code?
-              <button className="resendBtn" type="button">
+              Didn&apos;t receive the code?
+              <button className="resendBtn" type="button" onClick={onResend} disabled={isSubmitting}>
                 Resend Code
               </button>
             </p>
@@ -63,8 +124,8 @@ const ModalOTP = ({
 
 const StyledWrapper = styled.div`
   .otp-Form {
-    width: 230px;
-    height: 300px;
+    width: 320px;
+    min-height: 320px;
     background-color: rgb(255, 255, 255);
     display: flex;
     flex-direction: column;
@@ -112,6 +173,14 @@ const StyledWrapper = styled.div`
     font-weight: 600;
   }
 
+  .errorText {
+    margin: -8px 0 0;
+    color: rgb(239, 68, 68);
+    font-size: 0.72em;
+    font-weight: 600;
+    text-align: center;
+  }
+
   .otp-input:focus,
   .otp-input:valid {
     background-color: rgba(127, 129, 255, 0.199);
@@ -133,6 +202,12 @@ const StyledWrapper = styled.div`
   .verifyButton:hover {
     background-color: rgb(144, 145, 255);
     transition-duration: 0.2s;
+  }
+
+  .verifyButton:disabled,
+  .resendBtn:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
 
   .exitBtn {

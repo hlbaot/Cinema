@@ -1,5 +1,12 @@
 import axios from "axios";
-import { LoginRequest, LoginResponse, RegisterRequest } from "@/src/interface/auth";
+import type {
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
+    RegisterResponse,
+    VerifyOtpRequest,
+    VerifyOtpResponse,
+} from "@/src/interface/auth";
 import { API_URL } from "./url"
 
 export const API_SignIn = async (values: LoginRequest): Promise<LoginResponse> => {
@@ -10,8 +17,9 @@ export const API_SignIn = async (values: LoginRequest): Promise<LoginResponse> =
     return res.data;
 };
 
-export const API_SignUp = async (values: RegisterRequest) => {
-    return await axios.post(`${API_URL}/api/v1/auth/register`, values);
+export const API_SignUp = async (values: RegisterRequest): Promise<RegisterResponse> => {
+    const res = await axios.post<RegisterResponse>(`${API_URL}/api/v1/auth/register`, values);
+    return res.data;
 };
 
 export const API_RefreshAccessToken = async (refresh_token: string) => {
@@ -26,6 +34,16 @@ export const API_forgot_password = async (email: string) => {
 
 export const API_reset_password = async (reset_password_token: string, password: string) => {
     const res = await axios.put(`${API_URL}/api/v1/auth/reset-password`, { reset_password_token, password });
+    return res.data;
+};
+
+export const API_SendOTP = async (email: string) => {
+    const res = await axios.post(`${API_URL}/api/v1/auth/send-otp`, { email });
+    return res.data;
+};
+
+export const API_VerifyOTP = async (values: VerifyOtpRequest): Promise<VerifyOtpResponse> => {
+    const res = await axios.post<VerifyOtpResponse>(`${API_URL}/api/v1/auth/verify-otp`, values);
     return res.data;
 };
 

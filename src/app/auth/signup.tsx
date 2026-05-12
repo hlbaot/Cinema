@@ -2,9 +2,14 @@
 
 import { Field, Form, Formik, type FormikHelpers } from "formik";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CoinIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, TicketIcon, UserIcon, UserPlusIcon, GoogleIcon } from "@/public/icons/AuthIcons";
+import { API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
+import ModalOTP from "@/src/app/auth/modalOtp";
 import type { RegisterRequest } from "@/src/interface/auth";
+import { getRoleHomePath } from "@/src/lib/auth-shared";
+import { getApiErrorMessage, hasLoginData, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
 
 type RegisterErrors = Partial<Record<keyof RegisterRequest, string>>;
 
@@ -67,10 +72,94 @@ function validateSignUp(values: RegisterRequest): RegisterErrors {
 }
 
 export default function SignUpPage({ compact = false, onClose, onSwitchMode }: SignUpPageProps) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingRegister, setPendingRegister] = useState<RegisterRequest | null>(null);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
 
-  function handleSignUpSubmit(_values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
-    actions.setSubmitting(false);
+  async function handleSignUpSubmit(values: RegisterRequest, actions: FormikHelpers<RegisterRequest>) {
+    const payload: RegisterRequest = {
+      birth_date: values.birth_date,
+      email: values.email.trim(),
+      full_name: values.full_name.trim(),
+      gender: values.gender,
+      password: values.password,
+      phone: values.phone.trim(),
+    };
+
+    actions.setStatus(undefined);
+    setOtpError("");
+
+    try {
+      await API_SignUp(payload);
+      setPendingRegister(payload);
+      setOtpModalOpen(true);
+    } catch (error) {
+      actions.setStatus(getApiErrorMessage(error, "Đăng ký thất bại. Vui lòng thử lại."));
+    } finally {
+      actions.setSubmitting(false);
+    }
+  }
+
+  async function handleVerifyOtp(otp: string) {
+    if (!pendingRegister) {
+      setOtpError("Không tìm thấy thông tin đăng ký. Vui lòng thử lại.");
+      return;
+    }
+
+    if (otp.length < 4) {
+      setOtpError("Vui lòng nhập đầy đủ mã OTP.");
+      return;
+    }
+
+    setOtpSubmitting(true);
+    setOtpError("");
+
+    try {
+      const response = await API_VerifyOTP({ email: pendingRegister.email, otp });
+
+      setOtpModalOpen(false);
+      setPendingRegister(null);
+
+      if (hasLoginData(response.data)) {
+        const role = normalizeRole(response.data.user.role);
+
+        saveLoginCookies(response.data);
+        router.push(getRoleHomePath(role));
+        router.refresh();
+        onClose?.();
+        return;
+      }
+
+      if (compact && onSwitchMode) {
+        onSwitchMode("signin");
+      } else {
+        router.push("/auth/signin");
+      }
+    } catch (error) {
+      setOtpError(getApiErrorMessage(error, "Mã OTP không hợp lệ hoặc đã hết hạn."));
+    } finally {
+      setOtpSubmitting(false);
+    }
+  }
+
+  async function handleResendOtp() {
+    if (!pendingRegister) {
+      return;
+    }
+
+    setOtpSubmitting(true);
+    setOtpError("");
+
+    try {
+      await API_SendOTP(pendingRegister.email);
+    } catch (error) {
+      setOtpError(getApiErrorMessage(error, "Không thể gửi lại OTP. Vui lòng thử lại."));
+    } finally {
+      setOtpSubmitting(false);
+    }
   }
 
   return (
@@ -128,7 +217,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
 
             <div className="flex-1 p-5 sm:p-7">
               <Formik<RegisterRequest> initialValues={initialSignUpValues} validate={validateSignUp} onSubmit={handleSignUpSubmit}>
-                {({ errors, isSubmitting, touched, values }) => (
+                {({ errors, isSubmitting, status, touched, values }) => (
                   <Form className="space-y-4">
                     <div>
                       <label htmlFor="full_name" className="mb-2 block text-sm font-medium text-gray-300">
@@ -286,7 +375,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                     <div className="space-y-3">
                       <button
                         type="button"
-                        className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:border-white/20 hover:bg-[#0b0b0b]"
+                        className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:cursor-pointer hover:border-white/20 hover:bg-[#0b0b0b]"
                       >
                         <span className="flex items-center gap-4">
                           <GoogleIcon className="h-7 w-7 shrink-0" />
@@ -305,6 +394,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                       <span>Tạo tài khoản</span>
                       <UserPlusIcon className="h-5 w-5" />
                     </button>
+                    {status ? <p className="text-center text-xs font-medium text-red-400">{status}</p> : null}
                   </Form>
                 )}
               </Formik>
@@ -344,6 +434,18 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
           ) : null}
         </div>
       </div>
+      <ModalOTP
+        email={pendingRegister?.email}
+        error={otpError}
+        handleClose={() => {
+          setOtpModalOpen(false);
+          setOtpError("");
+        }}
+        isSubmitting={otpSubmitting}
+        onResend={handleResendOtp}
+        onVerify={handleVerifyOtp}
+        open={otpModalOpen}
+      />
       <style>{`
         .auth-modal-shell,
         .auth-modal-shell * {
