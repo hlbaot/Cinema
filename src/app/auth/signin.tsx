@@ -6,8 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRightIcon, CoinIcon, EyeIcon, EyeOffIcon, GoogleIcon, LockIcon, MailIcon, TicketIcon } from "@/public/icons/AuthIcons";
-import type { LoginRequest } from "@/src/interface/auth";
-import { getRoleHomePath } from "@/src/lib/auth-shared";
+import type { LoginRequest, LoginResponse } from "@/src/interface/auth";
+import { getRoleHomePath, type AppRole } from "@/src/lib/auth-shared";
+import { API_GG, API_SignIn } from "@/src/api/API_Auth";
 
 type LoginErrors = Partial<Record<keyof LoginRequest, string>>;
 
@@ -41,12 +42,50 @@ function validateSignIn(values: LoginRequest): LoginErrors {
   return errors;
 }
 
+function normalizeRole(role?: string): AppRole {
+  const normalizedRole = role?.toLowerCase();
+
+  return normalizedRole === "admin" || normalizedRole === "staff" || normalizedRole === "user"
+    ? normalizedRole
+    : "user";
+}
+
+function saveLoginCookies(data: LoginResponse["data"], provider: "credentials" | "google" = "credentials") {
+  const role = normalizeRole(data.user.role);
+
+  Cookies.set("ACCESS_TOKEN", data.access_token);
+  Cookies.set("REFRESH_TOKEN", data.refresh_token);
+  Cookies.set("ROLE", role);
+  Cookies.set("USER_ID", data.user.id);
+  Cookies.set("USER_EMAIL", data.user.email);
+  Cookies.set("USER_NAME", data.user.full_name);
+  Cookies.set("AUTH_PROVIDER", provider);
+}
+
 export default function SignInPage({ compact = false, onClose, onSwitchMode }: SignInPageProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
-  function handleSignInSubmit(_values: LoginRequest, actions: FormikHelpers<LoginRequest>) {
-    actions.setSubmitting(false);
+  async function handleLogin(values: LoginRequest, actions: FormikHelpers<LoginRequest>) {
+    actions.setStatus(undefined);
+
+    try {
+      const response = await API_SignIn(values);
+      const role = normalizeRole(response.data.user.role);
+
+      saveLoginCookies(response.data);
+      router.push(getRoleHomePath(role));
+      router.refresh();
+      onClose?.();
+    } catch {
+      actions.setStatus("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+    } finally {
+      actions.setSubmitting(false);
+    }
+  }
+
+  function handleGoogleLogin() {
+    Cookies.set("AUTH_PROVIDER", "google");
   }
 
   function handleQuickRoleLogin(role: "staff" | "admin") {
@@ -54,6 +93,9 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
     Cookies.remove("USER_NAME");
     Cookies.remove("USER_POINTS");
     Cookies.remove("MEMBERSHIP_LEVEL");
+    Cookies.remove("ACCESS_TOKEN");
+    Cookies.remove("REFRESH_TOKEN");
+    Cookies.set("AUTH_PROVIDER", "mock");
 
     router.push(getRoleHomePath(role));
     router.refresh();
@@ -65,7 +107,7 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
       className={`auth-modal-shell relative isolate overflow-x-hidden text-white ${compact ? "min-h-0 bg-transparent" : "min-h-screen bg-transparent"}`}
     >
       <div className={`relative z-10 flex items-center justify-center ${compact ? "px-0 py-0" : "min-h-screen px-4 py-12 sm:px-6"}`}>
-        <div className="w-full max-w-[35rem]">
+        <div className="w-full max-w-140">
           {!compact ? (
             <div className="mb-8 text-center">
               <Link href="/" className="inline-block">
@@ -79,12 +121,12 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
           ) : null}
 
           <div
-            className={`flex flex-col overflow-hidden border border-white/8 bg-gray-900/75 backdrop-blur-2xl ${compact ? "rounded-[1.75rem] shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : "min-h-[44rem] rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"}`}
+            className={`flex flex-col overflow-hidden border border-white/8 bg-gray-900/75 backdrop-blur-2xl ${compact ? "rounded-[1.75rem] shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : "min-h-176 rounded-[2rem] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"}`}
           >
             <div className="flex border-b border-white/8 text-sm sm:text-base">
               <button type="button" className="relative flex-1 py-4 text-center font-semibold text-yellow-500">
                 Đăng nhập
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-500 to-amber-500" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-linear-to-r from-yellow-500 to-amber-500" />
               </button>
 
               <Link
@@ -116,134 +158,136 @@ export default function SignInPage({ compact = false, onClose, onSwitchMode }: S
             </div>
 
             <div className="flex-1 p-5 sm:p-7">
-              <Formik<LoginRequest> initialValues={initialSignInValues} validate={validateSignIn} onSubmit={handleSignInSubmit}>
-                {({ errors, isSubmitting, touched }) => (
+              <Formik<LoginRequest> initialValues={initialSignInValues} validate={validateSignIn} onSubmit={handleLogin}>
+                {({ errors, isSubmitting, status, touched }) => (
                   <Form className="space-y-5">
-                <div>
-                  <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-300">
-                    Email
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                      <MailIcon className="h-5 w-5" />
-                    </span>
-                    <Field
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      className="w-full rounded-xl border border-gray-700 bg-gray-800/60 py-3 pl-12 pr-4 text-white placeholder:text-gray-500 transition-all outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                    />
-                  </div>
-                  {touched.email && errors.email ? (
-                    <p className="mt-2 text-xs font-medium text-red-400">{errors.email}</p>
-                  ) : null}
-                </div>
+                    <div>
+                      <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-300">
+                        Email
+                      </label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                          <MailIcon className="h-5 w-5" />
+                        </span>
+                        <Field
+                          id="email"
+                          name="email"
+                          type="email"
+                          placeholder="your@email.com"
+                          className="w-full rounded-xl border border-gray-700 bg-gray-800/60 py-3 pl-12 pr-4 text-white placeholder:text-gray-500 transition-all outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
+                      {touched.email && errors.email ? (
+                        <p className="mt-2 text-xs font-medium text-red-400">{errors.email}</p>
+                      ) : null}
+                    </div>
 
-                <div>
-                  <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-300">
-                    Mật khẩu
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                      <LockIcon className="h-5 w-5" />
-                    </span>
-                    <Field
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-gray-700 bg-gray-800/60 py-3 pl-12 pr-12 text-white placeholder:text-gray-500 transition-all outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((current) => !current)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-white"
-                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                    >
-                      {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  {touched.password && errors.password ? (
-                    <p className="mt-2 text-xs font-medium text-red-400">{errors.password}</p>
-                  ) : null}
-                </div>
+                    <div>
+                      <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-300">
+                        Mật khẩu
+                      </label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                          <LockIcon className="h-5 w-5" />
+                        </span>
+                        <Field
+                          id="password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          className="w-full rounded-xl border border-gray-700 bg-gray-800/60 py-3 pl-12 pr-12 text-white placeholder:text-gray-500 transition-all outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((current) => !current)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-white"
+                          aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        >
+                          {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                        </button>
+                      </div>
+                      {touched.password && errors.password ? (
+                        <p className="mt-2 text-xs font-medium text-red-400">{errors.password}</p>
+                      ) : null}
+                    </div>
 
-                <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <label className="flex cursor-pointer items-center text-gray-400">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-gray-600 bg-gray-800 accent-yellow-500 focus:ring-2 focus:ring-yellow-500"
-                    />
-                    <span className="ml-2">Ghi nhớ đăng nhập</span>
-                  </label>
+                    <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <label className="flex cursor-pointer items-center text-gray-400">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-600 bg-gray-800 accent-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                        />
+                        <span className="ml-2">Ghi nhớ đăng nhập</span>
+                      </label>
 
-                  <button type="button" className="text-left text-yellow-500 transition-colors hover:text-yellow-400">
-                    Quên mật khẩu?
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 py-3.5 font-bold text-black transition-all hover:cursor-pointer hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  <span>Đăng nhập</span>
-                  <ArrowRightIcon className="h-5 w-5" />
-                </button>
-
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Đăng nhập nhanh nội bộ</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickRoleLogin("staff")}
-                      className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-400 transition-all hover:scale-[1.02] hover:bg-sky-500/15"
-                    >
-                      Vào Staff
-                    </button>
+                      <button type="button" className="text-left text-yellow-500 transition-colors hover:cursor-pointer hover:text-yellow-400">
+                        Quên mật khẩu?
+                      </button>
+                    </div>
 
                     <button
-                      type="button"
-                      onClick={() => handleQuickRoleLogin("admin")}
-                      className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-4 py-3 text-sm font-bold text-fuchsia-400 transition-all hover:scale-[1.02] hover:bg-fuchsia-500/15"
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-yellow-500 to-amber-500 py-3.5 font-bold text-black transition-all hover:cursor-pointer hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      Vào Admin
+                      <span>Đăng nhập</span>
+                      <ArrowRightIcon className="h-5 w-5" />
                     </button>
-                  </div>
-                  <p className="mt-3 text-xs leading-5 text-gray-500">
-                    Luồng đăng nhập người dùng thường đã bỏ mock để bạn nối API thật vào nút <span className="font-medium text-gray-300">Đăng nhập</span>.
-                  </p>
-                </div>
+                    {status ? <p className="text-center text-xs font-medium text-red-400">{status}</p> : null}
 
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-700" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="bg-gray-900 px-4 text-gray-400">Hoặc đăng nhập với</span>
-                  </div>
-                </div>
+                    <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
+                      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Đăng nhập nhanh nội bộ</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => handleQuickRoleLogin("staff")}
+                          className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-400 transition-all hover:cursor-pointer hover:scale-[1.02] hover:bg-sky-500/15"
+                        >
+                          Vào Staff
+                        </button>
 
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:border-white/20 hover:bg-[#0b0b0b]"
-                  >
-                    <span className="flex items-center gap-4">
-                      <GoogleIcon className="h-7 w-7 shrink-0" />
-                      <span className="text-base font-semibold tracking-[0.01em] text-white sm:text-[1.15rem]">
-                        Tiếp tục với Google
-                      </span>
-                    </span>
-                  </button>
-                </div>
-              </Form>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickRoleLogin("admin")}
+                          className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-4 py-3 text-sm font-bold text-fuchsia-400 transition-all hover:cursor-pointer hover:scale-[1.02] hover:bg-fuchsia-500/15"
+                        >
+                          Vào Admin
+                        </button>
+                      </div>
+                      <p className="mt-3 text-xs leading-5 text-gray-500">
+                        Luồng đăng nhập người dùng thường đã bỏ mock để bạn nối API thật vào nút <span className="font-medium text-gray-300">Đăng nhập</span>.
+                      </p>
+                    </div>
+
+                    <div className="relative my-6">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-700" />
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="bg-gray-900 px-4 text-gray-400">Hoặc đăng nhập với</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <a
+                        href={API_GG}
+                        onClick={handleGoogleLogin}
+                        className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:cursor-pointer hover:border-white/20 hover:bg-[#0b0b0b]"
+                      >
+                        <span className="flex items-center gap-4">
+                          <GoogleIcon className="h-7 w-7 shrink-0" />
+                          <span className="text-base font-semibold tracking-[0.01em] text-white sm:text-[1.15rem]">
+                            Tiếp tục với Google
+                          </span>
+                        </span>
+                      </a>
+                    </div>
+                  </Form>
                 )}
               </Formik>
             </div>
 
-            <div className="border-t border-white/8 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 p-4">
+            <div className="border-t border-white/8 bg-linear-to-r from-yellow-500/10 to-amber-500/10 p-4">
               <div className="flex flex-col items-center justify-center gap-3 text-sm text-gray-400 sm:flex-row sm:gap-6">
                 <div className="flex items-center gap-2">
                   <CoinIcon className="h-5 w-5 text-yellow-500" />

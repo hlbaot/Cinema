@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import Cookies from "js-cookie";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -7,9 +8,8 @@ import { useState } from "react";
 
 type AdminLink = {
   href: string;
+  icon: ReactNode;
   label: string;
-  badge?: string;
-  icon: React.ReactNode;
 };
 
 function DashboardIcon() {
@@ -27,7 +27,12 @@ function FilmIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
       <rect width="18" height="18" x="3" y="3" rx="2" stroke="currentColor" strokeWidth="2" />
-      <path d="M7 3v18M17 3v18M3 7.5h4M17 7.5h4M3 12h18M3 16.5h4M17 16.5h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M7 3v18M17 3v18M3 7.5h4M17 7.5h4M3 12h18M3 16.5h4M17 16.5h4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -111,14 +116,32 @@ const adminLinks: AdminLink[] = [
   { href: "/admin/qlyPhong", label: "Quản lý phòng", icon: <DoorIcon /> },
   { href: "/admin/qlySchedule", label: "Quản lý lịch chiếu", icon: <CalendarIcon /> },
   { href: "/admin/qlyUser", label: "Quản lý người dùng", icon: <UserIcon /> },
-  { href: "/admin/qlyCorn", label: "Quản lý bắp nước", icon: <TicketIcon />, badge: "2" },
-  { href: "/admin/qlyNhanVien", label: "Quản lý nhân viên", icon: <StaffIcon /> },
+  { href: "/admin/qlyCorn", label: "Quản lý bắp nước", icon: <TicketIcon /> },
+  { href: "/admin/qlyStaff", label: "Quản lý nhân viên", icon: <StaffIcon /> },
 ];
 
 export default function AdminNavbar() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [showExpandedContent, setShowExpandedContent] = useState(true);
+  const expandTimer = useRef<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setCollapsed(true);
+      setShowExpandedContent(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (expandTimer.current) {
+        window.clearTimeout(expandTimer.current);
+      }
+    };
+  }, []);
 
   function handleLogout() {
     Cookies.remove("ROLE");
@@ -128,6 +151,7 @@ export default function AdminNavbar() {
     router.push("/trangChu");
     router.refresh();
   }
+
 
   const SidebarContent = () => (
     <>
@@ -208,6 +232,127 @@ export default function AdminNavbar() {
         >
           {mobileOpen ? <CloseIcon /> : <MenuIcon />}
         </button>
+
+  function handleToggleNavbar() {
+    if (expandTimer.current) {
+      window.clearTimeout(expandTimer.current);
+      expandTimer.current = null;
+    }
+
+    if (collapsed) {
+      setCollapsed(false);
+      expandTimer.current = window.setTimeout(() => {
+        setShowExpandedContent(true);
+        expandTimer.current = null;
+      }, 300);
+      return;
+    }
+
+    setShowExpandedContent(false);
+    setCollapsed(true);
+  }
+
+  return (
+    <aside
+      className={`sticky top-0 z-40 flex h-screen shrink-0 overflow-hidden border-r border-gray-800 bg-gray-900/50 backdrop-blur transition-[width] duration-300 ease-in-out ${
+        collapsed ? "w-[5.75rem]" : "w-64"
+      }`}
+    >
+      <div className="flex h-full w-full min-w-0 flex-col">
+        <div className="border-b border-gray-800 p-4">
+          <Link
+            href="/admin/overView"
+            className="flex cursor-pointer items-center justify-start gap-3"
+            title={collapsed ? "CINEPRO" : undefined}
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-xl font-bold">
+              <span aria-hidden="true">🎬</span>
+            </div>
+            <div
+              className={`min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ${
+                showExpandedContent ? "max-w-40 opacity-100" : "max-w-0 opacity-0"
+              }`}
+            >
+              <h1 className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-lg font-bold text-transparent">
+                CINEPRO
+              </h1>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Admin Portal</p>
+            </div>
+          </Link>
+        </div>
+
+        <nav className="flex-1 space-y-2 overflow-y-auto p-4">
+          {adminLinks.map((link) => {
+            const active = pathname === link.href;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`group flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-all duration-200 ${
+                  active
+                    ? "border-purple-500/30 bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-400 shadow-lg shadow-purple-500/5"
+                    : "border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
+                }`}
+                title={showExpandedContent ? undefined : link.label}
+              >
+                <span
+                  className={`text-xl transition-transform group-hover:scale-110 ${
+                    active ? "text-purple-400" : "text-gray-500"
+                  }`}
+                >
+                  {link.icon}
+                </span>
+                <span
+                  className={`overflow-hidden whitespace-nowrap font-medium transition-[max-width,opacity] duration-200 ${
+                    showExpandedContent ? "max-w-40 opacity-100" : "max-w-0 opacity-0"
+                  }`}
+                >
+                  {link.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="space-y-3 border-t border-gray-800 p-4">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 transition-all duration-200 hover:border-red-400/30 hover:bg-red-500/15 hover:text-white"
+            title={showExpandedContent ? undefined : "Đăng xuất"}
+          >
+            <span className="text-lg text-red-300">
+              <LogoutIcon />
+            </span>
+            <span
+              className={`overflow-hidden whitespace-nowrap font-medium transition-[max-width,opacity] duration-200 ${
+                showExpandedContent ? "max-w-28 opacity-100" : "max-w-0 opacity-0"
+              }`}
+            >
+              Đăng xuất
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleNavbar}
+            className="flex w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-gray-800/50 px-3 py-2 text-gray-400 transition-all hover:bg-gray-800 hover:text-white"
+            aria-label={collapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            title={collapsed ? "Mở rộng" : "Thu gọn"}
+          >
+            <div className={`transition-transform duration-300 ${collapsed ? "rotate-0" : "rotate-180"}`}>
+              <ChevronRightIcon />
+            </div>
+            <span
+              className={`overflow-hidden whitespace-nowrap text-xs font-medium transition-[max-width,opacity] duration-200 ${
+                showExpandedContent ? "max-w-20 opacity-100" : "max-w-0 opacity-0"
+              }`}
+            >
+              Thu gọn
+            </span>
+          </button>
+        </div>
+
       </div>
 
       {/* ── Mobile overlay ── */}

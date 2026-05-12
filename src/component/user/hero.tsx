@@ -198,8 +198,8 @@ export default function Hero() {
         )}
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-r from-black/75 via-black/35 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-t from-black/45 via-transparent to-transparent" />
 
       <div className="relative min-h-[calc(100vh+4rem)] px-4 pt-16 sm:px-6 lg:min-h-[calc(100vh+5rem)] lg:px-8 lg:pt-20">
         <div className="mx-auto flex min-h-[calc(100vh+4rem)] w-full max-w-7xl items-center justify-start lg:min-h-[calc(100vh+5rem)]">
@@ -249,7 +249,7 @@ export default function Hero() {
             <div className="flex flex-wrap gap-4">
               <Link
                 href={getMovieDetailHref(currentMovie.id, 'showtimes')}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 px-8 py-4 font-bold text-black transition-all hover:scale-105 hover:from-yellow-400 hover:to-amber-500"
+                className="flex items-center gap-2 rounded-xl bg-linear-to-r from-yellow-500 to-amber-600 px-8 py-4 font-bold text-black transition-all hover:scale-105 hover:from-yellow-400 hover:to-amber-500"
               >
                 <TicketIcon />
                 <span>MUA VE NGAY</span>
