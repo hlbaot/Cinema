@@ -30,7 +30,7 @@ export default function IntroScreen({ children }: IntroScreenProps) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const hasSeenIntro = window.sessionStorage.getItem(SESSION_KEY) === "true";
+    const hasSeenIntro = window.localStorage.getItem(SESSION_KEY) === "true";
 
     if (hasSeenIntro) {
       const skipTimer = window.setTimeout(() => {
@@ -48,7 +48,7 @@ export default function IntroScreen({ children }: IntroScreenProps) {
     }, INTRO_DURATION_MS);
 
     const doneTimer = window.setTimeout(() => {
-      window.sessionStorage.setItem(SESSION_KEY, "true");
+      window.localStorage.setItem(SESSION_KEY, "true");
       setVisible(false);
       setReady(true);
     }, INTRO_DURATION_MS + EXIT_DURATION_MS);

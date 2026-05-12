@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CoinIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, PhoneIcon, TicketIcon, UserIcon, UserPlusIcon, GoogleIcon } from "@/public/icons/AuthIcons";
-import { API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
+import { API_GG, API_SendOTP, API_SignUp, API_VerifyOTP } from "@/src/api/API_Auth";
 import ModalOTP from "@/src/app/auth/modalOtp";
 import type { RegisterRequest } from "@/src/interface/auth";
 import { getRoleHomePath } from "@/src/lib/auth-shared";
-import { getApiErrorMessage, hasLoginData, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
+import { getApiErrorMessage, hasLoginData, markGoogleLogin, normalizeRole, saveLoginCookies } from "@/src/lib/auth-client";
 
 type RegisterErrors = Partial<Record<keyof RegisterRequest, string>>;
 
@@ -160,6 +160,10 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
     } finally {
       setOtpSubmitting(false);
     }
+  }
+
+  function handleGoogleLogin() {
+    markGoogleLogin();
   }
 
   return (
@@ -373,8 +377,9 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                     </div>
 
                     <div className="space-y-3">
-                      <button
-                        type="button"
+                      <a
+                        href={API_GG}
+                        onClick={handleGoogleLogin}
                         className="flex w-full items-center justify-center rounded-[1.4rem] border border-white/10 bg-[#050505] px-6 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.22)] transition-all hover:cursor-pointer hover:border-white/20 hover:bg-[#0b0b0b]"
                       >
                         <span className="flex items-center gap-4">
@@ -383,7 +388,7 @@ export default function SignUpPage({ compact = false, onClose, onSwitchMode }: S
                             Tiếp tục với Google
                           </span>
                         </span>
-                      </button>
+                      </a>
                     </div>
 
                     <button

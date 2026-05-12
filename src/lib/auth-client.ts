@@ -14,7 +14,7 @@ export function normalizeRole(role?: string): AppRole {
 
 export function saveLoginCookies(
   data: LoginResponse["data"],
-  provider: "credentials" | "google" | "mock" = "credentials",
+  provider: "credentials" | "google" = "credentials",
 ) {
   const role = normalizeRole(data.user.role);
 
@@ -30,11 +30,17 @@ export function saveLoginCookies(
 export function clearAuthCookies() {
   Cookies.remove("ACCESS_TOKEN");
   Cookies.remove("REFRESH_TOKEN");
+  Cookies.remove("ROLE");
   Cookies.remove("USER_ID");
   Cookies.remove("USER_EMAIL");
   Cookies.remove("USER_NAME");
   Cookies.remove("USER_POINTS");
   Cookies.remove("MEMBERSHIP_LEVEL");
+  Cookies.remove("AUTH_PROVIDER");
+}
+
+export function markGoogleLogin() {
+  Cookies.set("AUTH_PROVIDER", "google");
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string) {

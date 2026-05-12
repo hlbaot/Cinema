@@ -2,12 +2,13 @@
 
 import Box from "@mui/material/Box";
 import Modal from "@mui/material/Modal";
-import Cookies from "js-cookie";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import SignInPage from "@/src/app/auth/signin";
 import SignUpPage from "@/src/app/auth/signup";
+import ModalProfile from "@/src/component/user/modalProfile";
+import { clearAuthCookies } from "@/src/lib/auth-client";
 import type { HeaderUser, MembershipLevel } from "@/src/lib/auth-shared";
 
 const authModalStyle = {
@@ -162,6 +163,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [authModalView, setAuthModalView] = useState<"signin" | "signup" | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [userOverride, setUserOverride] = useState<HeaderUser | null | undefined>(undefined);
 
   useEffect(() => {
@@ -187,10 +189,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
   }
 
   function handleLogout() {
-    Cookies.remove("ROLE");
-    Cookies.remove("USER_NAME");
-    Cookies.remove("USER_POINTS");
-    Cookies.remove("MEMBERSHIP_LEVEL");
+    clearAuthCookies();
     setUserOverride(null);
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
@@ -316,7 +315,10 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
 
                     <div className="p-2">
                       <button
-                        onClick={() => handleNavigate("/trangChu")}
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setProfileModalOpen(true);
+                        }}
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5"
                       >
                         <UserIcon className="h-5 w-5 text-gray-400" />
@@ -470,6 +472,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
           ) : null}
         </Box>
       </Modal>
+      <ModalProfile open={profileModalOpen} onClose={() => setProfileModalOpen(false)} />
       <style>{`
         @keyframes fade-in {
           from {
