@@ -3,6 +3,7 @@
 import Cookies from "js-cookie";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
 type AdminLink = {
   href: string;
@@ -78,20 +79,28 @@ function StaffIcon() {
   );
 }
 
-function ChevronRightIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-      <path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function LogoutIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M16 17l5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   );
 }
@@ -109,20 +118,26 @@ const adminLinks: AdminLink[] = [
 export default function AdminNavbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   function handleLogout() {
     Cookies.remove("ROLE");
     Cookies.remove("USER_NAME");
     Cookies.remove("USER_POINTS");
     Cookies.remove("MEMBERSHIP_LEVEL");
-    router.push("/auth/signin");
+    router.push("/trangChu");
     router.refresh();
   }
 
-  return (
-    <aside className="-translate-x-full fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-gray-800 bg-gray-900/50 backdrop-blur transition-all duration-300 md:sticky md:top-0 md:h-screen md:w-64 md:translate-x-0">
-      <div className="border-b border-gray-800 p-4">
-        <Link href="/admin/overView" className="flex cursor-pointer items-center justify-start gap-3">
+  const SidebarContent = () => (
+    <>
+      {/* Logo */}
+      <div className="border-b border-gray-800 p-5">
+        <Link
+          href="/admin/overView"
+          className="flex cursor-pointer items-center gap-3"
+          onClick={() => setMobileOpen(false)}
+        >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-xl font-bold">
             <span aria-hidden="true">🎬</span>
           </div>
@@ -135,25 +150,22 @@ export default function AdminNavbar() {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto p-4">
+      {/* Nav links */}
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {adminLinks.map((link) => {
           const active = pathname === link.href;
-
           return (
             <Link
               key={link.href}
               href={link.href}
+              onClick={() => setMobileOpen(false)}
               className={`group flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-all duration-200 ${
                 active
                   ? "border-purple-500/30 bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-400 shadow-lg shadow-purple-500/5"
                   : "border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              <span
-                className={`text-xl transition-transform group-hover:scale-110 ${
-                  active ? "text-purple-400" : "text-gray-500"
-                }`}
-              >
+              <span className={`transition-transform group-hover:scale-110 ${active ? "text-purple-400" : "text-gray-500"}`}>
                 {link.icon}
               </span>
               <span className="font-medium">{link.label}</span>
@@ -167,24 +179,58 @@ export default function AdminNavbar() {
         })}
       </nav>
 
-      <div className="space-y-3 border-t border-gray-800 p-4">
+      {/* Logout */}
+      <div className="border-t border-gray-800 p-4">
         <button
           type="button"
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 transition-all duration-200 hover:border-red-400/30 hover:bg-red-500/15 hover:text-white"
         >
-          <span className="text-lg text-red-300">
-            <LogoutIcon />
-          </span>
+          <LogoutIcon />
           <span className="font-medium">Đăng xuất</span>
         </button>
-        <button className="hidden w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-gray-800/50 px-3 py-2 text-gray-400 transition-all hover:bg-gray-800 hover:text-white md:flex">
-          <div className="rotate-180 transition-transform duration-300">
-            <ChevronRightIcon />
-          </div>
-          <span className="text-xs font-medium">Thu gọn</span>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* ── Mobile top bar ── */}
+      <div className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-gray-800 bg-gray-900/95 px-4 backdrop-blur md:hidden">
+        <Link href="/admin/overView" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 text-base">🎬</div>
+          <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-base font-bold text-transparent">CINEPRO</span>
+        </Link>
+        <button
+          onClick={() => setMobileOpen(v => !v)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+          aria-label="Toggle menu"
+        >
+          {mobileOpen ? <CloseIcon /> : <MenuIcon />}
         </button>
       </div>
-    </aside>
+
+      {/* ── Mobile overlay ── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile drawer ── */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-gray-800 bg-[#0b0b14] pt-14 transition-transform duration-300 md:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <SidebarContent />
+      </aside>
+
+      {/* ── Desktop sidebar ── */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-gray-800 bg-gray-900/50 backdrop-blur md:flex">
+        <SidebarContent />
+      </aside>
+    </>
   );
 }

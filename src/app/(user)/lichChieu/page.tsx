@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Particles from "@/public/uiux/Particles";
 import { useMovies } from "@/src/hooks/useMovies";
+import {
+  API_GetShowtimesByWeek,
+  getMovieId,
+  getRoomId,
+  getShowtimeId,
+  getShowtimeStartTime,
+  getShowtimeYmd,
+  type ShowtimeDto,
+} from "@/src/api/API_Showtime";
 
 const TIME_ZONE = "Asia/Ho_Chi_Minh";
 const WEEKDAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -79,16 +88,13 @@ function buildDateItems(today: Date) {
   });
 }
 
-function getShowtimesForMovie(movieId: string, dateIso: string) {
-  const seed = (movieId.length || 0) + Number(dateIso.slice(-2));
-  const baseSets = [
-    ["09:15", "12:30", "15:45", "19:00"],
-    ["10:00", "13:20", "16:40", "20:10"],
-    ["08:40", "11:55", "15:10", "18:25"],
-    ["09:45", "13:00", "16:15", "19:30"],
-  ];
-
-  return baseSets[seed % baseSets.length];
+function dedupeTimes(times: Array<string | undefined>) {
+  const s = new Set<string>();
+  for (const t of times) {
+    if (!t) continue;
+    s.add(t);
+  }
+  return Array.from(s);
 }
 
 export default function SchedulePage() {
@@ -100,6 +106,7 @@ export default function SchedulePage() {
   });
 
   const [selectedDateIso, setSelectedDateIso] = useState(() => formatIsoDate(today));
+  const [weekShowtimes, setWeekShowtimes] = useState<ShowtimeDto[]>([]);
 
   useEffect(() => {
     const tickToday = () => {
@@ -119,6 +126,23 @@ export default function SchedulePage() {
     const intervalId = window.setInterval(tickToday, 60 * 1000);
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    ;(async () => {
+      try {
+        const list = await API_GetShowtimesByWeek({ date: selectedDateIso });
+        if (cancelled) return;
+        setWeekShowtimes(list);
+      } catch {
+        if (cancelled) return;
+        setWeekShowtimes([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDateIso]);
 
   const dateItems = useMemo(() => buildDateItems(today), [today]);
 
@@ -227,7 +251,12 @@ export default function SchedulePage() {
                       </div>
 
                       <div className="flex flex-wrap gap-3">
-                        {getShowtimesForMovie(movie.id, selectedDateIso).map((time) => (
+                        {dedupeTimes(
+                          weekShowtimes
+                            .filter((s) => getMovieId(s) === movie.id)
+                            .filter((s) => getShowtimeYmd(s) === selectedDateIso)
+                            .map((s) => getShowtimeStartTime(s))
+                        ).map((time) => (
                           <button
                             key={`${movie.id}-${selectedDateIso}-${time}`}
                             type="button"
@@ -240,12 +269,36 @@ export default function SchedulePage() {
                     </div>
 
                     <div className="mt-5 flex flex-wrap gap-3">
-                      <Link
-                        href="/datVe"
-                        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-transform hover:scale-[1.02]"
-                      >
-                        Đặt vé ngay
-                      </Link>
+                      {(() => {
+                        const candidates = weekShowtimes
+                          .filter((s) => getMovieId(s) === movie.id)
+                          .filter((s) => getShowtimeYmd(s) === selectedDateIso)
+                        const first = candidates[0]
+                        const showtimeId = first ? getShowtimeId(first) : undefined
+                        const roomId = first ? getRoomId(first) : undefined
+                        const href = showtimeId && roomId ? `/dat-ve/${showtimeId}?movieId=${movie.id}&roomId=${roomId}` : null
+
+                        if (!href) {
+                          return (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 opacity-50 cursor-not-allowed"
+                            >
+                              Đặt vé ngay
+                            </button>
+                          )
+                        }
+
+                        return (
+                          <Link
+                            href={href}
+                            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-transform hover:scale-[1.02]"
+                          >
+                            Đặt vé ngay
+                          </Link>
+                        )
+                      })()}
 
                       <Link
                         href={movie.trailer}
