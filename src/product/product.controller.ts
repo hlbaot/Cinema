@@ -20,22 +20,21 @@ export class ProductController {
   }
 
   @Get()
-  @UseGuards(AuthGuard, RoleGuard)
-  @Roles(UserRole.ADMIN)  
   findAll(@Query() query: GetProductsQueryDto) {
     return this.productService.getAllProducts(query);
   }
 
+  @Get('category')
+  getCategory() {
+    return this.productService.getCategory();
+  }
+
   @Get('available')
-  @UseGuards(AuthGuard, RoleGuard)
-  @Roles(UserRole.STAFF)
   getAvailableProducts() {
     return this.productService.getAvailableProducts();
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard, RoleGuard)
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productService.detailProduct(id);
   }
@@ -53,5 +52,4 @@ export class ProductController {
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productService.removeProduct(id);
   }
-
 }

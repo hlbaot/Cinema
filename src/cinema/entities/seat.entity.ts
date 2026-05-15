@@ -42,10 +42,10 @@ export class Seat extends CreatedAtEntity {
   type: SeatType;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: '0' })
-  base_price: string;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: '0' })
   price_adjustment: string;
+
+  @Column({ type: 'boolean', default: true })
+  is_active: boolean;
 
   @OneToMany(() => ShowtimeSeat, (showtimeSeat) => showtimeSeat.seat)
   showtime_seats: ShowtimeSeat[];

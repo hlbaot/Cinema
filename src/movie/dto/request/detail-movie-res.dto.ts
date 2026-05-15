@@ -14,6 +14,19 @@ export class DetailMovieResponseDto {
     end_date: Date;
     genre: string[];
     actor: string[];
+    showtimes?: ShowtimeGroupDto[];
   };
 }
 
+export class ShowtimeGroupDto {
+  date: string;
+  rooms: {
+    room_id: string;
+    room_name: string;
+    format: string;
+    sessions: {
+      id: string;
+      start_time: string;
+    }[];
+  }[];
+}

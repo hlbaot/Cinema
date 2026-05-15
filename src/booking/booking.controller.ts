@@ -1,34 +1,48 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Request } from 'express';
+import { BookingConfirmAccessGuard } from './guards/booking-confirm-access.guard';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
-import { UpdateBookingDto } from './dto/update-booking.dto';
 
 @Controller('bookings')
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
+  // Tạo đặt vé
   @Post()
-  create(@Body() createBookingDto: CreateBookingDto) {
-    return this.bookingService.create(createBookingDto);
+  @UseGuards(AuthGuard)
+  create(@Body() createBookingDto: CreateBookingDto, @Req() req: Request & { user?: { id?: string; sub?: string } }) {
+    const userId = req.user?.id ?? req.user?.sub ?? null;
+    return this.bookingService.create(userId, createBookingDto);
   }
 
-  @Get()
-  findAll() {
-    return this.bookingService.findAll();
+  // Tra cứu theo mã vé (public)
+  @Get('code/:bookingCode')
+  findByCode(@Param('bookingCode') bookingCode: string) {
+    return this.bookingService.findByBookingCode(bookingCode);
   }
 
+  // Lấy thông tin đặt vé
   @Get(':id')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.bookingService.findOne(id);
+  @UseGuards(AuthGuard)
+  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request & { user?: { id?: string; sub?: string } }) {
+    const userId = req.user?.id ?? req.user?.sub ?? null;
+    return this.bookingService.findOneForUser(userId, id);
   }
 
-  @Patch(':id')
-  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updateBookingDto: UpdateBookingDto) {
-    return this.bookingService.update(id, updateBookingDto);
+  // Xác nhận booking sau thanh toán (internal secret hoặc admin/staff JWT)
+  @Patch(':id/confirm')
+  @UseGuards(BookingConfirmAccessGuard)
+  confirm(@Param('id', ParseUUIDPipe) id: string) {
+    return this.bookingService.confirmAfterPayment(id);
   }
 
-  @Delete(':id')
-  remove(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.bookingService.remove(id);
+  // Hủy đặt vé
+  @Patch(':id/cancel')
+  @UseGuards(AuthGuard)
+  cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request & { user?: { id?: string; sub?: string } }) {
+    const userId = req.user?.id ?? req.user?.sub ?? null;
+    return this.bookingService.cancelForUser(userId, id);
   }
 }

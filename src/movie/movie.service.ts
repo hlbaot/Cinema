@@ -1,11 +1,11 @@
 import { BadRequestException, HttpException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, Not, Repository } from 'typeorm';
 import { CreateMovieDto } from './dto/request/create-movie.dto';
 import { DetailMovieResponseDto } from './dto/request/detail-movie-res.dto';
 import { CreateMovieResponseDto } from './dto/response/create-movie-response.dto';
-import { GetShowingMoviesResponseDto } from './dto/response/get-showing-movies-response.dto.ts';
-import { MovieStatus } from './enums/movie.enum';
+import { GetShowingMoviesResponseDto } from './dto/response/get-showing-movies-response.dto';
+import { MovieAgeRating, MovieStatus } from './enums/movie.enum';
 import { Actor } from './entities/actor.entity';
 import { Genre } from './entities/genre.entity';
 import { MovieCast } from './entities/movie-cast.entity';
@@ -16,6 +16,9 @@ import { GetAllMovieResponseDto } from './dto/response/get-all-movie.dto';
 import { UpdateMovieDto } from './dto/request/update-movie.dto';
 import { UpdateMovieResponseDto } from './dto/response/update-movie.dto';
 import { DeleteMovieResponseDto } from './dto/response/delete-movie.response.dto';
+import { Showtime } from 'src/showtime/entities/showtime.entity';
+import { ShowtimeStatus } from 'src/showtime/enums/showtime.enum';
+import { ShowtimeGroupDto } from './dto/request/detail-movie-res.dto';
 
 @Injectable()
 export class MovieService {
@@ -52,8 +55,10 @@ export class MovieService {
   }
 
   // lấy thể loại phim
-  async getAllGenre(): Promise<Genre[]> {
-    return this.genreRepository.find();
+  async getAllGenre(): Promise<{id: string, name: string}[]> {
+    return this.genreRepository.find({
+      select: ['id', 'name'],
+    });
   }
 
   // Map data movie
@@ -133,6 +138,8 @@ export class MovieService {
             director: dto.director,
             start_date: dto.start_date,
             end_date: dto.end_date,
+            admin_priority: dto.admin_priority ?? 5,
+            expected_hot_score: dto.expected_hot_score ?? null,
             age_rating: dto.age_rating as Movie['age_rating'],
             status: dto.status as MovieStatus,
           }),
@@ -222,6 +229,8 @@ export class MovieService {
             actor: savedMovie.actors,
             start_date: new Date(savedMovie.movie.start_date || new Date()),
             end_date: new Date(savedMovie.movie.end_date || new Date()),
+            admin_priority: savedMovie.movie.admin_priority,
+            expected_hot_score: savedMovie.movie.expected_hot_score ?? null,
           },
         },
       };
@@ -363,13 +372,67 @@ export class MovieService {
         end_date: movie.end_date ? new Date(movie.end_date) : new Date(),
         genre: movie.movie_genres?.map((movieGenre) => movieGenre.genre?.name) || [],
         actor: movie.movie_casts?.map((movieCast) => movieCast.actor?.name) || [],
+        showtimes: await this.getGroupedShowtimes(movie.id),
       },
     };
+  }
+
+  /** Helper: Lấy và group danh sách suất chiếu của phim theo Ngày -> Phòng/Format -> Giờ chiếu */
+  private async getGroupedShowtimes(movieId: string): Promise<ShowtimeGroupDto[]> {
+    const showtimes = await this.dataSource.getRepository(Showtime).find({
+      where: {
+        movie_id: movieId,
+        status: ShowtimeStatus.ON_SALE,
+      },
+      relations: { room: true },
+      order: {
+        start_time: 'ASC',
+      },
+    });
+
+    const dateMap = new Map<string, ShowtimeGroupDto>();
+
+    for (const st of showtimes) {
+      const dateKey = st.show_date; // Định dạng YYYY-MM-DD từ DB
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, {
+          date: dateKey,
+          rooms: [],
+        });
+      }
+
+      const dateObj = dateMap.get(dateKey)!;
+      
+      // Group theo Room và Format (vì cùng 1 phòng có thể chiếu nhiều format khác nhau)
+      let roomObj = dateObj.rooms.find(r => r.room_id === st.room_id && r.format === st.format);
+      
+      if (!roomObj) {
+        roomObj = {
+          room_id: st.room_id,
+          room_name: st.room.name,
+          format: st.format,
+          sessions: [],
+        };
+        dateObj.rooms.push(roomObj);
+      }
+
+      roomObj.sessions.push({
+        id: st.id,
+        start_time: st.start_time.toLocaleTimeString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }),
+      });
+    }
+
+    return Array.from(dateMap.values());
   }
 
   // Lấy tất cả các phim 
   async getAllMovies(): Promise<GetAllMovieResponseDto> {
     const movies = await this.movieRepository.find({
+      where: { status: Not(MovieStatus.ENDED) },
       relations: ['movie_genres', 'movie_genres.genre', 'movie_casts', 'movie_casts.actor']
     })
     return {
@@ -381,6 +444,57 @@ export class MovieService {
     }
   }
 
-  
+
+  // Lấy danh sách phân loại độ tuổi
+  getMovieAgeRating(): { value: MovieAgeRating; label: string; description: string }[] {
+    return [
+      {
+        value: MovieAgeRating.P,
+        label: 'P',
+        description: 'Phổ biến – Phù hợp với mọi lứa tuổi',
+      },
+      {
+        value: MovieAgeRating.K,
+        label: 'K',
+        description: 'Không phù hợp với trẻ em dưới 13 tuổi nếu không có người lớn đi kèm',
+      },
+      {
+        value: MovieAgeRating.T13,
+        label: 'T13',
+        description: 'Phim dành cho khán giả từ 13 tuổi trở lên',
+      },
+      {
+        value: MovieAgeRating.T16,
+        label: 'T16',
+        description: 'Phim dành cho khán giả từ 16 tuổi trở lên',
+      },
+      {
+        value: MovieAgeRating.T18,
+        label: 'T18',
+        description: 'Phim dành cho khán giả từ 18 tuổi trở lên',
+      },
+    ];
+  }
+
+  // Lấy danh sách trạng thái phim
+  getMovieStatus(): { value: MovieStatus; label: string; description: string }[] {
+    return [
+      {
+        value: MovieStatus.NOW_SHOWING,
+        label: 'Đang chiếu',
+        description: 'Phim hiện đang được chiếu tại rạp',
+      },
+      {
+        value: MovieStatus.COMING_SOON,
+        label: 'Sắp chiếu',
+        description: 'Phim sẽ được chiếu trong thời gian tới',
+      },
+      {
+        value: MovieStatus.ENDED,
+        label: 'Đã kết thúc',
+        description: 'Phim đã kết thúc lịch chiếu tại rạp',
+      },
+    ];
+  }
 
 }

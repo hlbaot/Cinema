@@ -5,6 +5,7 @@ import { MovieAgeRating, MovieStatus } from '../enums/movie.enum';
 import { MovieCast } from './movie-cast.entity';
 import { MovieGenre } from './movie-genre.entity';
 import { Review } from './review.entity';
+import { ScreeningFormat } from '../../showtime/enums/showtime.enum';
 
 @Entity('movies')
 export class Movie extends TimestampedEntity {
@@ -57,20 +58,20 @@ export class Movie extends TimestampedEntity {
   admin_priority: number;
 
   @Column({
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
+    type: 'int',
     nullable: true,
   })
   expected_hot_score: number | null;
 
-  @Column({
-    type: 'enum',
-    enum: MovieStatus,
-    default: MovieStatus.COMING_SOON,
-  })
+  @Column({ type: 'enum', enum: MovieStatus, default: MovieStatus.COMING_SOON })
   @Index()
   status: MovieStatus;
+
+  @Column({
+    type: 'simple-array',
+    nullable: true,
+  })
+  supported_formats: ScreeningFormat[];
 
   @OneToMany(() => MovieGenre, (movieGenre) => movieGenre.movie)
   movie_genres: MovieGenre[];

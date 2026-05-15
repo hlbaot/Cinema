@@ -16,6 +16,8 @@ export class CreateMovieResponseDto {
             actor: string[];
             start_date: Date;
             end_date: Date;
+            admin_priority: number;
+            expected_hot_score: number | null;
         }
     } 
 }

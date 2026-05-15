@@ -6,7 +6,7 @@ import { UpdateProductDto } from './dto/request/update-product.dto';
 import { Product } from './entities/product.entity';
 import { ProductResponseDto } from './dto/response/product-response.dto';
 import { ProductItemDto } from './dto/response/product-item.dto';
-import { ProductStatus } from './enums/product.enum';
+import { ProductCategory, ProductStatus } from './enums/product.enum';
 import { GetProductsQueryDto } from './dto/request/get-products-query.dto';
 
 @Injectable()
@@ -38,6 +38,12 @@ export class ProductService {
       status: product.status,
       created_at: product.created_at,
     };
+  }
+
+  private normalizeImageUrl(imageUrl?: string | null): string | null | undefined {
+    if (imageUrl === undefined) return undefined;
+    const trimmed = imageUrl?.trim() ?? '';
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   // Xây dựng query tìm kiếm sản phẩm
@@ -94,6 +100,8 @@ export class ProductService {
       ...dto,
       name: dto.name.trim(),
       stock: dto.stock ?? 0,
+      image_url: this.normalizeImageUrl(dto.image_url) ?? null,
+      status: dto.status ?? ProductStatus.ACTIVE,
     });
 
     const savedProduct = await this.productRepository.save(product);
@@ -141,6 +149,7 @@ export class ProductService {
     const updatedProduct = this.productRepository.merge(product, {
       ...dto,
       name: dto.name?.trim() ?? product.name,
+      image_url: this.normalizeImageUrl(dto.image_url) ?? product.image_url,
     });
 
     await this.productRepository.save(updatedProduct);
@@ -177,6 +186,17 @@ export class ProductService {
   // xem tất cả sản phẩm
   async getAllProducts(query: GetProductsQueryDto): Promise<ProductResponseDto> {
     return this.buildProductQuery(query);
+  }
+
+  // lấy danh mục sản phẩm
+  async getCategory() {
+    return {
+      success: true,
+      data: {
+        message: 'Lấy danh sách danh mục sản phẩm thành công',
+        categories: Object.values(ProductCategory),
+      },
+    };
   }
 
   // Lấy sản phẩm đang bán (status = available) — dùng khi khách chọn combo lúc đặt vé

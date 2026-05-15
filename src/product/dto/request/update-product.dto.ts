@@ -22,7 +22,6 @@ export class UpdateProductDto {
   stock?: number;
 
   @IsString()
-  @MaxLength(255)
   @IsOptional()
   image_url?: string;
 

@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateMovieDto } from './create-movie.dto';
-import { IsArray, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { MovieAgeRating, MovieStatus } from 'src/movie/enums/movie.enum';
 
 // kế thừa từ create-movie.dto
@@ -66,4 +66,16 @@ export class UpdateMovieDto {
     @IsNotEmpty()
     @IsOptional()
     end_date?: Date
+
+    @IsInt()
+    @Min(1)
+    @Max(5)
+    @IsOptional()
+    expected_hot_score?: number;
+
+    @IsInt()
+    @Min(1)
+    @Max(10)
+    @IsOptional()
+    admin_priority?: number;
 }

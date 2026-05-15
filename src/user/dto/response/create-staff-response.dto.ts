@@ -5,5 +5,6 @@ export class CreateStaffResponseDto {
   data: {
     message: string;
     staff: UserItemDto;
+    temporary_password: string;
   };
 }

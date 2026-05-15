@@ -20,7 +20,6 @@ export class CreateProductDto {
   stock?: number = 0;
 
   @IsString()
-  @MaxLength(255)
   @IsOptional()
   image_url?: string;
 

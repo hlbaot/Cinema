@@ -1,5 +1,11 @@
 import { IsEmail, IsNotEmpty, IsString } from "class-validator";
 
+export type MailAttachmentDto = {
+    filename: string;
+    path: string;
+    cid?: string;
+};
+
 export class SendMailDto{
     @IsString()
     to: string;
@@ -12,4 +18,6 @@ export class SendMailDto{
 
     @IsString()
     text?: string
+
+    attachments?: MailAttachmentDto[];
 }

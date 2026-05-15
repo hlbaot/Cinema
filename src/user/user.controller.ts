@@ -54,4 +54,11 @@ export class UserController {
     async updateStatus(@Param('id') id: string, @Body() body: UpdateUserStatusDto){
         return this.userService.updateStatus(id, body);
     }
+
+    @Patch('staff/:id/reset-password')
+    @UseGuards(AuthGuard, RoleGuard)
+    @Roles(UserRole.ADMIN)
+    async resetStaffPassword(@Param('id') id: string){
+        return this.userService.resetStaffPassword(id);
+    }
 }

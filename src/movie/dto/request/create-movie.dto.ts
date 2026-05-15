@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
 import { MovieAgeRating, MovieStatus } from "src/movie/enums/movie.enum";
 
 export class CreateMovieDto {
@@ -51,4 +51,16 @@ export class CreateMovieDto {
     @IsDateString()
     @IsNotEmpty()
     end_date: Date
+
+    @IsInt()
+    @Min(1)
+    @Max(5)
+    @IsOptional()
+    expected_hot_score?: number;
+
+    @IsInt()
+    @Min(1)
+    @Max(10)
+    @IsOptional()
+    admin_priority?: number;
 }

@@ -13,7 +13,7 @@ import { Cinema } from '../../cinema/entities/cinema.entity';
 import { Room } from '../../cinema/entities/room.entity';
 import { Movie } from '../../movie/entities/movie.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
-import { ScreeningFormat, ShowtimeStatus } from '../enums/showtime.enum';
+import { ScreeningFormat, ScheduleType, ShowtimeStatus } from '../enums/showtime.enum';
 
 @Entity('showtimes')
 export class Showtime extends TimestampedEntity {
@@ -86,6 +86,14 @@ export class Showtime extends TimestampedEntity {
   })
   @Index()
   status: ShowtimeStatus;
+
+  @Column({
+    type: 'enum',
+    enum: ScheduleType,
+    default: ScheduleType.MANUAL,
+  })
+  @Index()
+  schedule_type: ScheduleType;
 
   @OneToMany(() => ShowtimeSeat, (showtimeSeat) => showtimeSeat.showtime)
   showtime_seats: ShowtimeSeat[];

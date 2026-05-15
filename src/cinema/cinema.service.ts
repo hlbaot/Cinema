@@ -9,17 +9,26 @@ import { Cinema } from './entities/cinema.entity';
 import { Room } from './entities/room.entity';
 import { Seat } from './entities/seat.entity';
 import { RoomItemDto } from './dto/response/room-item.dto';
-import { RoomStatus } from './enums/cinema.enum';
+import { RoomStatus, SeatType } from './enums/cinema.enum';
+import { GetRoomsResponseDto } from './dto/response/get-rooms-response.dto';
+import { SeatItemDto } from './dto/response/seat-item.dto';
+import { GenerateSeatsDto } from './dto/request/generate-seats.dto';
+import { UpdateSeatDto } from './dto/request/update-seat.dto';
+import { GenerateSeatsResponseDto } from './dto/response/generate-seats-response.dto';
+import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class CinemaService {
   private readonly logger = new Logger(CinemaService.name);
+  private readonly COUPLE_SEAT_PRICE_ADJUSTMENT = 95000;
 
   constructor(
     @InjectRepository(Cinema)
     private readonly cinemaRepository: Repository<Cinema>,
     @InjectRepository(Room)
-    private readonly roomRepo: Repository<Room>
+    private readonly roomRepo: Repository<Room>,
+    @InjectRepository(Seat)
+    private readonly seatRepository: Repository<Seat>,
   ) { }
 
   private findRoomById(id: string) : Promise<Room | null>{
@@ -37,6 +46,19 @@ export class CinemaService {
       status: room.status,
       created_at: room.created_at,
     }
+  }
+
+  /** Chuyển đổi từ Entity Seat sang DTO SeatItemDto */
+  private mapToSeatItem(seat: Seat): SeatItemDto {
+    return {
+      id: seat.id,
+      room_id: seat.room_id,
+      seat_row: seat.seat_row,
+      seat_number: seat.seat_number,
+      type: seat.type,
+      price_adjustment: Number(seat.price_adjustment),
+      is_active: seat.is_active,
+    };
   }
     
   // tạo room
@@ -84,6 +106,24 @@ export class CinemaService {
     }
   }
 
+  async updateRoomStatus(id: string, status: RoomStatus): Promise<RoomItemDto> {
+    try {
+      const room = await this.findRoomById(id);
+      if (!room) {
+        throw new NotFoundException('Không tìm thấy phòng');
+      }
+
+      room.status = status;
+      const savedRoom = await this.roomRepo.save(room);
+      return this.mapToRoomItemDto(savedRoom);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(`Cập nhật trạng thái phòng thất bại: ${error.message}`, 500);
+    }
+  }
+
   // xoá phòng
   async deleteRoom(id: string) : Promise<RoomItemDto>{
     try {
@@ -98,7 +138,196 @@ export class CinemaService {
         throw error;
       }
       throw new HttpException(`Xoá phòng thất bại: ${error.message}`, 500);
-      
+    }
+  }
+
+  // lấy tất cả các room đang active
+  async getAllActiveRooms() : Promise<GetRoomsResponseDto>{
+    const rooms = await this.roomRepo.find({
+      where: { status: RoomStatus.ACTIVE },
+    });
+    return {
+      success: true,
+      data: {
+        message: 'Lấy tất cả các phòng đang active thành công',
+        rooms: rooms.map((room) => this.mapToRoomItemDto(room)),
+      },
+    };
+  }
+
+  // lấy tất cả room đang maintenance
+  async getAllMaintenanceRooms() : Promise<GetRoomsResponseDto>{
+    const rooms = await this.roomRepo.find({
+      where: { status: RoomStatus.MAINTENANCE },
+    });
+    return {
+      success: true,
+      data: {
+        message: 'Lấy tất cả các phòng đang bảo trì thành công',
+        rooms: rooms.map((room) => this.mapToRoomItemDto(room)),
+      },
+    };
+  }
+
+  // lấy tất cả các room đang inactive
+  async getAllInactiveRooms() : Promise<GetRoomsResponseDto>{
+    const rooms = await this.roomRepo.find({
+      where: { status: RoomStatus.INACTIVE },
+    });
+    return {
+      success: true,
+      data: {
+        message: 'Lấy tất cả các phòng đang inactive thành công',
+        rooms: rooms.map((room) => this.mapToRoomItemDto(room)),
+      },
+    };
+  }
+
+  // lấy tất cả các room
+  async getAllRooms() : Promise<GetRoomsResponseDto>{
+    const rooms = await this.roomRepo.find();
+    return {
+      success: true,
+      data: {
+        message: 'Lấy tất cả các phòng thành công',
+        rooms: rooms.map((room) => this.mapToRoomItemDto(room)),
+      },
+    };
+  }
+
+  /** Lấy danh sách toàn bộ ghế của một phòng, sắp xếp theo tên hàng và số ghế */
+  async getRoomSeats(roomId: string): Promise<SeatItemDto[]> {
+    const seats = await this.seatRepository.find({
+      where: { room_id: roomId },
+      order: {
+        seat_row: 'ASC',
+        seat_number: 'ASC',
+      },
+    });
+
+    return seats.map((seat) => this.mapToSeatItem(seat));
+  }
+
+  /** Cập nhật thông tin một ghế (Loại ghế, chênh lệch giá, trạng thái active) */
+  async updateSeat(id: string, dto: UpdateSeatDto): Promise<SeatItemDto> {
+    const seat = await this.seatRepository.findOne({ where: { id } });
+    if (!seat) {
+      throw new NotFoundException('Không tìm thấy ghế');
+    }
+
+    // Nếu thay đổi loại ghế nhưng không gửi price_adjustment, gán giá mặc định theo loại
+    if (dto.type && dto.price_adjustment === undefined) {
+      seat.price_adjustment = this.getSeatPriceAdjustment(dto.type).toString();
+    }
+
+    this.seatRepository.merge(seat, {
+      ...dto,
+      price_adjustment: dto.price_adjustment !== undefined ? dto.price_adjustment.toString() : seat.price_adjustment
+    } as any);
+
+    const savedSeat = await this.seatRepository.save(seat);
+    return this.mapToSeatItem(savedSeat);
+  }
+
+  /** Vô hiệu hóa một ghế (Disable) */
+  async disableSeat(id: string): Promise<SeatItemDto> {
+    const seat = await this.seatRepository.findOne({ where: { id } });
+    if (!seat) {
+      throw new NotFoundException('Không tìm thấy ghế');
+    }
+    seat.is_active = false;
+    const saved = await this.seatRepository.save(seat);
+    return this.mapToSeatItem(saved);
+  }
+
+  /** Bật/Tắt trạng thái hoạt động của ghế */
+  async toggleSeatStatus(id: string): Promise<SeatItemDto> {
+    const seat = await this.seatRepository.findOne({ where: { id } });
+    if (!seat) {
+      throw new NotFoundException('Không tìm thấy ghế');
+    }
+    seat.is_active = !seat.is_active;
+    const saved = await this.seatRepository.save(seat);
+    return this.mapToSeatItem(saved);
+  }
+
+  /** Tự động sinh danh sách ghế cho phòng dựa trên số hàng và số ghế mỗi hàng */
+  async generateSeats(dto: GenerateSeatsDto): Promise<GenerateSeatsResponseDto> {
+    const room = await this.roomRepo.findOne({
+      where: { id: dto.room_id },
+    });
+
+    if (!room) {
+      throw new NotFoundException('Không tìm thấy phòng chiếu');
+    }
+
+    // Kiểm tra xem phòng đã có ghế chưa để tránh tạo đè
+    const existedSeats = await this.seatRepository.count({
+      where: { room_id: dto.room_id },
+    });
+
+    if (existedSeats > 0) {
+      throw new BadRequestException('Phòng này đã có ghế');
+    }
+
+    const seats: Seat[] = [];
+
+    // Duyệt qua từng hàng
+    for (let rowIndex = 0; rowIndex < dto.rows; rowIndex++) {
+      const seatRow = String.fromCharCode(65 + rowIndex); // A, B, C...
+
+      // Duyệt qua từng ghế trong hàng
+      for (let seatNumber = 1; seatNumber <= dto.seats_per_row; seatNumber++) {
+        const seatType = this.getSeatType(rowIndex, dto.rows);
+        const priceAdjustment = this.getSeatPriceAdjustment(seatType);
+
+        seats.push(
+          this.seatRepository.create({
+            room_id: dto.room_id,
+            seat_row: seatRow,
+            seat_number: seatNumber,
+            type: seatType,
+            price_adjustment: priceAdjustment.toString(),
+          }),
+        );
+      }
+    }
+
+    // Lưu hàng loạt vào DB
+    const createdSeats = await this.seatRepository.save(seats);
+
+    return {
+      success: true,
+      data: {
+        message: 'Tạo ghế cho phòng thành công',
+        total_created: createdSeats.length,
+        seats: createdSeats.map((seat) => this.mapToSeatItem(seat)),
+      },
+    };
+  }
+
+  /** Helper: Xác định loại ghế dựa trên vị trí hàng (Hàng cuối là Couple, 1/3 hàng sau là VIP, còn lại Standard) */
+  private getSeatType(rowIndex: number, totalRows: number): SeatType {
+    if (rowIndex >= totalRows - 1) {
+      return SeatType.COUPLE;
+    }
+
+    if (rowIndex >= Math.floor(totalRows / 3)) {
+      return SeatType.VIP;
+    }
+
+    return SeatType.STANDARD;
+  }
+
+  /** Helper: Lấy mức chênh lệch giá cho từng loại ghế */
+  private getSeatPriceAdjustment(seatType: SeatType): number {
+    switch (seatType) {
+      case SeatType.COUPLE:
+        return this.COUPLE_SEAT_PRICE_ADJUSTMENT;
+      case SeatType.VIP:
+      case SeatType.STANDARD:
+      default:
+        return 0;
     }
   }
 }

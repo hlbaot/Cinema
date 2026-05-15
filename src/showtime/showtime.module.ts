@@ -10,9 +10,10 @@ import { Room } from 'src/cinema/entities/room.entity';
 import { Seat } from 'src/cinema/entities/seat.entity';
 import { Cinema } from 'src/cinema/entities/cinema.entity';
 import { AuthModule } from 'src/auth/auth.module';
+import { CinemaModule } from 'src/cinema/cinema.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Showtime, ShowtimeSeat, Movie, Room, Seat, Cinema]), AuthModule, MovieModule],
+  imports: [TypeOrmModule.forFeature([Showtime, ShowtimeSeat, Movie, Room, Seat, Cinema]), AuthModule, MovieModule, CinemaModule],
   controllers: [ShowtimeController],
   providers: [ShowtimeService],
   exports: [TypeOrmModule, ShowtimeService],

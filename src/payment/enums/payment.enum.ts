@@ -5,11 +5,12 @@ export enum PaymentProvider {
   ZALOPAY = 'zalopay',
   STRIPE = 'stripe',
   MANUAL = 'manual',
+  PAYOS = 'payos',
 }
 
 export enum PaymentStatus {
   PENDING = 'pending',
-  PAID = 'paid',
+  SUCCESS = 'success',
   FAILED = 'failed',
   REFUNDED = 'refunded',
   CANCELLED = 'cancelled',

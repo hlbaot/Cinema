@@ -49,9 +49,19 @@ export class MovieController {
     return this.movieService.getComingSoonMovies();
   }
 
-  @Get('genre/all')
+  @Get('genre')
   async getAllGenre() {
     return this.movieService.getAllGenre();
+  }
+
+  @Get('age-rating')
+  getAgeRating() {
+    return this.movieService.getMovieAgeRating();
+  }
+
+  @Get('status')
+  getStatus() {
+    return this.movieService.getMovieStatus();
   }
 
   // ─── Param routes (phải để cuối) ─────────────────────────────────────────

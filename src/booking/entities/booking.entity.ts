@@ -15,6 +15,7 @@ import { Notification } from '../../notification/entities/notification.entity';
 import { Payment } from '../../payment/entities/payment.entity';
 import { Showtime } from '../../showtime/entities/showtime.entity';
 import { User } from '../../user/entities/user.entity';
+import { Ticket } from '../../ticket/entities/ticket.entity';
 import { BookingStatus } from '../enums/booking.enum';
 import { BookingProduct } from './booking-product.entity';
 import { BookingSeat } from './booking-seat.entity';
@@ -159,4 +160,7 @@ export class Booking extends TimestampedEntity {
 
   @OneToMany(() => Notification, (notification) => notification.booking)
   notifications: Notification[];
+
+  @OneToMany(() => Ticket, (ticket) => ticket.booking)
+  tickets: Ticket[];
 }

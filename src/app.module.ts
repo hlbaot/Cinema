@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { BookingModule } from './booking/booking.module';
+import { TicketModule } from './ticket/ticket.module';
 import { CinemaModule } from './cinema/cinema.module';
 import { databaseConfig } from './config/database.config';
 import { MovieModule } from './movie/movie.module';
@@ -15,6 +17,7 @@ import { ProductModule } from './product/product.module';
 import { ShowtimeModule } from './showtime/showtime.module';
 import { UserModule } from './user/user.module';
 import { MailModule } from './mail/email.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import * as Joi from 'joi'; // joi sử dụng để validate env
 import googleOauthConfig from './config/google-oauth.config';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -57,9 +60,12 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     CinemaModule,
     ShowtimeModule,
     BookingModule,
+    TicketModule,
     PaymentModule,
     NotificationModule,
     ProductModule,
+    DashboardModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [

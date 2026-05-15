@@ -30,7 +30,7 @@ export class Product extends TimestampedEntity {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text', nullable: true })
   image_url: string | null;
 
   @Column({

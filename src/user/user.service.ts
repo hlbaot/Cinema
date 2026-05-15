@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
 import { UserRole } from './enums/user-role.enum';
 import { CustomerProfileResponseDto } from './dto/customer-profile.dto';
 import { CustomerProfile } from './entities/customer-profile.entity';
@@ -17,13 +18,16 @@ import { UserItemDto } from './dto/response/user-item.dto';
 import { DeleteStaffResponseDto } from './dto/response/delete-staff.dto';
 import { UpdateUserStatusResponseDto } from './dto/response/update-user-status.dto';
 import { GetStaffDetailResponseDto } from './dto/response/staff-detail.dto';
+import { ResetStaffPasswordResponseDto } from './dto/response/reset-staff-password-response.dto';
+import { EmailService } from 'src/mail/email.service';
 
 @Injectable()
 export class UserService {
 
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly emailService: EmailService,
   ) { }
   // Map role sang string
   private mapRegisterRole(role: UserRole): UserRole {
@@ -44,6 +48,15 @@ export class UserService {
       auth_provider: user.auth_provider,
       created_at: user.created_at,
     }
+  }
+
+  private generateTemporaryPassword(length = 12): string {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += alphabet[randomInt(alphabet.length)];
+    }
+    return password;
   }
 
   // Map quyền lợi theo từng hạng thành viên.
@@ -230,22 +243,28 @@ export class UserService {
     }
 
 
-    const hashedPassword = bcrypt.hashSync(dto.password, 10);
+    const temporaryPassword = this.generateTemporaryPassword();
+    const hashedPassword = bcrypt.hashSync(temporaryPassword, 10);
     const user = this.userRepo.create({
       email: dto.email,
       password_hash: hashedPassword,
       full_name: dto.full_name,
       phone: dto.phone,
-      avatar_url: dto.avatar_url,
       role: UserRole.STAFF,
       status: UserStatus.ACTIVE,
     });
     await this.userRepo.save(user);
+    await this.emailService.sendStaffTemporaryPasswordMail(
+      user.email,
+      user.full_name,
+      temporaryPassword,
+    );
     return {
       success: true,
       data: {
         message: 'Tạo nhân viên thành công',
         staff: this.mapToUserItem(user),
+        temporary_password: temporaryPassword,
       }
     }
   }
@@ -266,6 +285,30 @@ export class UserService {
         message: `Đã cập nhật trạng thái tài khoản ${user.full_name} thành ${user.status}`
       }
     }
+  }
+
+  async resetStaffPassword(id: string): Promise<ResetStaffPasswordResponseDto> {
+    const user = await this.findUserById(id);
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+    if (user.role !== UserRole.STAFF) throw new BadRequestException('Chỉ có thể reset mật khẩu tài khoản nhân viên');
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    user.password_hash = bcrypt.hashSync(temporaryPassword, 10);
+    user.auth_provider = 'local';
+    await this.userRepo.save(user);
+    await this.emailService.sendStaffTemporaryPasswordMail(
+      user.email,
+      user.full_name,
+      temporaryPassword,
+    );
+
+    return {
+      success: true,
+      data: {
+        message: `Đã tạo mật khẩu tạm mới cho nhân viên ${user.full_name}`,
+        temporary_password: temporaryPassword,
+      },
+    };
   }
 
   // phân ca

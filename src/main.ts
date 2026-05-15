@@ -5,6 +5,8 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
+
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -12,8 +14,10 @@ async function bootstrap() {
   // Ensure public directions exist
   const publicPath = join(__dirname, '..', 'public');
   const avatarPath = join(publicPath, 'avatars');
+  const ticketsPath = join(publicPath, 'tickets');
   if (!existsSync(publicPath)) mkdirSync(publicPath);
   if (!existsSync(avatarPath)) mkdirSync(avatarPath);
+  if (!existsSync(ticketsPath)) mkdirSync(ticketsPath);
 
   app.useStaticAssets(publicPath, {
     prefix: '/public/',
@@ -22,8 +26,11 @@ async function bootstrap() {
   const apiPrefix = process.env.API_PREFIX ?? 'api/v1';
   app.setGlobalPrefix(apiPrefix);
   app.use(cookieParser());
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+
   app.enableCors({
-    origin: ['http://172.25.19.111:3000', 'http://localhost:3000', 'http://localhost:3003'],
+    origin: ['http://172.25.29.163:3000', 'http://localhost:3000', 'http://localhost:3003', 'http://10.36.120.223:3000', 'http://172.25.17.239:3000', 'http://10.36.120.123:300', 'http://10.36.120.140:3000'],
     credentials: true,
   });
   app.useGlobalPipes(

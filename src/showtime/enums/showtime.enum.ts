@@ -21,3 +21,8 @@ export enum ShowtimeSeatStatus {
   SOLD = 'sold',
   UNAVAILABLE = 'unavailable',
 }
+
+export enum ScheduleType {
+  AUTO = 'auto',
+  MANUAL = 'manual',
+}
