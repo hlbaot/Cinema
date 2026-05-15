@@ -1,23 +1,8 @@
 import { useState, useEffect } from "react";
 import { API_GetMovieDetail } from "@/src/api/API_Movie";
-import { MappedMovie } from "./useMovies";
+import type { MappedMovieDetail } from "@/src/interface/movie";
 
-interface MappedMovieDetail extends MappedMovie {
-  director: string;
-  actors: string[];
-  showtimes: {
-    date: string;
-    rooms: {
-      room_id: string;
-      room_name: string;
-      format: string;
-      sessions: {
-        id: string;
-        time: string;
-      }[];
-    }[];
-  }[];
-}
+export type { MappedMovieDetail }
 
 const statusMap: Record<string, string> = {
   NOW_SHOWING: "Đang chiếu",

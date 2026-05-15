@@ -121,6 +121,7 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
 
 const releaseDates = ['2022-12-16', '2018-04-27', '2026-07-31', '2026-02-17']
 const ratings = ['96%', '94%', '91%', '93%']
+const HERO_SLIDE_DURATION_MS = 5000
 const videoStylesByMovieId: Record<string, { scale: string; objectPosition: string }> = {
   "1": { scale: 'scale-[1.18]', objectPosition: 'center center' },
   "2": { scale: 'scale-[1.22]', objectPosition: 'center center' },
@@ -139,7 +140,7 @@ export default function Hero() {
 
     const interval = window.setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % movies.length)
-    }, 5000)
+    }, HERO_SLIDE_DURATION_MS)
 
     return () => window.clearInterval(interval)
   }, [movies.length])
@@ -166,6 +167,20 @@ export default function Hero() {
 
   const isYouTube = currentMovie.trailer.includes('youtube.com') || currentMovie.trailer.includes('youtu.be');
   const youtubeId = isYouTube ? (currentMovie.trailer.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/) || [])[1] : null;
+  const youtubeEmbedParams = new URLSearchParams({
+    autoplay: '1',
+    cc_load_policy: '0',
+    controls: '0',
+    disablekb: '1',
+    fs: '0',
+    iv_load_policy: '3',
+    loop: '1',
+    modestbranding: '1',
+    mute: '1',
+    playsinline: '1',
+    playlist: youtubeId || '',
+    rel: '0',
+  }).toString()
 
   return (
     <div className="relative -mt-16 min-h-[calc(100vh+4rem)] w-full overflow-hidden lg:-mt-20 lg:min-h-[calc(100vh+5rem)]">
@@ -178,21 +193,32 @@ export default function Hero() {
           <iframe
             key={youtubeId}
             className={`absolute top-1/2 left-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover ${videoStyle.scale} pointer-events-none border-none`}
-            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}&controls=0&showinfo=0&autohide=1&modestbranding=1&rel=0&enablejsapi=1`}
+            src={`https://www.youtube-nocookie.com/embed/${youtubeId}?${youtubeEmbedParams}`}
             allow="autoplay; encrypted-media"
             title={currentMovie.title}
+            tabIndex={-1}
           />
         ) : (
           <video
             key={currentMovie.id}
-            className={`absolute top-1/2 left-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover ${videoStyle.scale}`}
+            className={`hero-background-video pointer-events-none absolute top-1/2 left-1/2 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 object-cover ${videoStyle.scale}`}
             src={currentMovie.trailer}
             poster={currentMovie.poster}
             autoPlay
+            controls={false}
+            disablePictureInPicture
+            controlsList="nodownload nofullscreen noremoteplayback"
             muted
             loop
             playsInline
             preload="metadata"
+            tabIndex={-1}
+            aria-hidden="true"
+            onContextMenu={(event) => event.preventDefault()}
+            onLoadedMetadata={(event) => {
+              event.currentTarget.controls = false
+              void event.currentTarget.play().catch(() => undefined)
+            }}
             style={{ objectPosition: videoStyle.objectPosition }}
           />
         )}
@@ -305,6 +331,27 @@ export default function Hero() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        .hero-background-video::-webkit-media-controls,
+        .hero-background-video::-webkit-media-controls-panel,
+        .hero-background-video::-webkit-media-controls-play-button,
+        .hero-background-video::-webkit-media-controls-start-playback-button,
+        .hero-background-video::-webkit-media-controls-timeline,
+        .hero-background-video::-webkit-media-controls-current-time-display,
+        .hero-background-video::-webkit-media-controls-time-remaining-display,
+        .hero-background-video::-webkit-media-controls-mute-button,
+        .hero-background-video::-webkit-media-controls-volume-slider,
+        .hero-background-video::-webkit-media-controls-fullscreen-button {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+
+        .hero-background-video {
+          -webkit-user-select: none;
+          user-select: none;
+        }
+      `}</style>
     </div>
   )
 }

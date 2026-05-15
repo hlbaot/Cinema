@@ -88,14 +88,7 @@ function buildDateItems(today: Date) {
   });
 }
 
-function dedupeTimes(times: Array<string | undefined>) {
-  const s = new Set<string>();
-  for (const t of times) {
-    if (!t) continue;
-    s.add(t);
-  }
-  return Array.from(s);
-}
+
 
 export default function SchedulePage() {
   const { movies, loading } = useMovies();
@@ -247,50 +240,58 @@ export default function SchedulePage() {
                     <div className="mt-5">
                       <div className="mb-3 flex items-center gap-2">
                         <ClockIcon />
-                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">Suất chiếu</p>
+                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">Suất chiếu — chọn giờ để đặt vé</p>
                       </div>
 
                       <div className="flex flex-wrap gap-3">
-                        {dedupeTimes(
-                          weekShowtimes
-                            .filter((s) => getMovieId(s) === movie.id)
-                            .filter((s) => getShowtimeYmd(s) === selectedDateIso)
-                            .map((s) => getShowtimeStartTime(s))
-                        ).map((time) => (
-                          <button
-                            key={`${movie.id}-${selectedDateIso}-${time}`}
-                            type="button"
-                            className="rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2 text-sm font-semibold text-slate-100 transition-colors hover:border-yellow-400 hover:bg-slate-800 hover:text-yellow-300"
-                          >
-                            {time}
-                          </button>
-                        ))}
+                        {weekShowtimes
+                          .filter((s) => getMovieId(s) === movie.id)
+                          .filter((s) => getShowtimeYmd(s) === selectedDateIso)
+                          .map((s) => {
+                            const time = getShowtimeStartTime(s)
+                            const showtimeId = getShowtimeId(s)
+                            const roomId = getRoomId(s)
+                            const href = showtimeId && roomId
+                              ? `/dat-ve/${showtimeId}?movieId=${movie.id}&roomId=${roomId}`
+                              : null
+
+                            if (!time) return null
+
+                            return href ? (
+                              <Link
+                                key={showtimeId ?? time}
+                                href={href}
+                                className="rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2 text-sm font-semibold text-slate-100 transition-all hover:border-yellow-400 hover:bg-yellow-400 hover:text-slate-950"
+                              >
+                                {time}
+                              </Link>
+                            ) : (
+                              <span
+                                key={time}
+                                className="rounded-full border border-slate-700 bg-slate-900/90 px-4 py-2 text-sm font-semibold text-slate-500"
+                              >
+                                {time}
+                              </span>
+                            )
+                          })}
+
+                        {weekShowtimes.filter((s) => getMovieId(s) === movie.id && getShowtimeYmd(s) === selectedDateIso).length === 0 && (
+                          <span className="text-sm text-slate-500">Chưa có suất chiếu cho ngày này.</span>
+                        )}
                       </div>
                     </div>
 
                     <div className="mt-5 flex flex-wrap gap-3">
-
                       {(() => {
-                        const candidates = weekShowtimes
+                        const first = weekShowtimes
                           .filter((s) => getMovieId(s) === movie.id)
                           .filter((s) => getShowtimeYmd(s) === selectedDateIso)
-                        const first = candidates[0]
+                          .find((s) => getShowtimeId(s) && getRoomId(s))
                         const showtimeId = first ? getShowtimeId(first) : undefined
                         const roomId = first ? getRoomId(first) : undefined
-                        const href = showtimeId && roomId ? `/dat-ve/${showtimeId}?movieId=${movie.id}&roomId=${roomId}` : null
-
-                        if (!href) {
-                          return (
-                            <button
-                              type="button"
-                              disabled
-                              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 opacity-50 cursor-not-allowed"
-                            >
-                              Đặt vé ngay
-                            </button>
-                          )
-                        }
-
+                        const href = showtimeId && roomId
+                           ? `/dat-ve/${showtimeId}?movieId=${movie.id}&roomId=${roomId}`
+                           : `/phim/${movie.id}?date=${selectedDateIso}`
                         return (
                           <Link
                             href={href}
@@ -300,14 +301,6 @@ export default function SchedulePage() {
                           </Link>
                         )
                       })()}
-
-                      <Link
-                        href="/datVe"
-                        className="inline-flex items-center justify-center rounded-full bg-linear-to-r from-yellow-400 to-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 transition-transform hover:scale-[1.02]"
-                      >
-                        Đặt vé ngay
-                      </Link>
-
 
                       <Link
                         href={movie.trailer}

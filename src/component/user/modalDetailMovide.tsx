@@ -2,6 +2,7 @@
 
 import NextImage from 'next/image'
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +17,24 @@ import {
 import { useMovieDetail } from '@/src/hooks/useMovieDetail'
 
 const weekdayLabels = ['CN', 'Th 2', 'Th 3', 'Th 4', 'Th 5', 'Th 6', 'Th 7']
+
+function formatLocalIsoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function parseLocalIsoDate(isoDate: string) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+function isTodayOrFuture(isoDate: string, todayIso: string) {
+  return isoDate >= todayIso
+}
 
 function DetailInfoItem({
   icon,
@@ -34,7 +53,9 @@ function DetailInfoItem({
 
 export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
   const { movie, loading } = useMovieDetail(movieId);
-  const [selectedDate, setSelectedDate] = useState('')
+  const searchParams = useSearchParams()
+  const dateFromQuery = searchParams.get('date') ?? ''
+  const [selectedDate, setSelectedDate] = useState(dateFromQuery)
   const [expandedTheater, setExpandedTheater] = useState(0)
 
   if (loading) {
@@ -53,8 +74,11 @@ export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
     );
   }
 
-  const activeDate = selectedDate || movie.showtimes[0]?.date || ''
-  const currentShowtimeGroup = movie.showtimes.find(s => s.date === activeDate);
+  const todayIso = formatLocalIsoDate(new Date())
+  const availableShowtimes = movie.showtimes.filter((group) => isTodayOrFuture(group.date, todayIso))
+  const selectedDateStillAvailable = availableShowtimes.some((group) => group.date === selectedDate)
+  const activeDate = selectedDateStillAvailable ? selectedDate : availableShowtimes[0]?.date || ''
+  const currentShowtimeGroup = availableShowtimes.find(s => s.date === activeDate);
 
   return (
     <section className="min-h-screen bg-black text-white">
@@ -204,10 +228,11 @@ export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
                 Lịch chiếu
               </h2>
 
-              <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-                {movie.showtimes.map((group) => {
+              {availableShowtimes.length > 0 ? (
+                <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+                  {availableShowtimes.map((group) => {
                   const isActive = group.date === activeDate
-                  const dateObj = new Date(group.date);
+                  const dateObj = parseLocalIsoDate(group.date);
                   const day = dateObj.getDate();
                   const month = dateObj.getMonth() + 1;
                   const weekday = weekdayLabels[dateObj.getDay()];
@@ -228,8 +253,13 @@ export default function ModalDetailMovide({ movieId }: { movieId?: string }) {
                       <span className="text-xs opacity-75">Th {month}</span>
                     </button>
                   )
-                })}
-              </div>
+                  })}
+                </div>
+              ) : (
+                <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 text-sm text-gray-400">
+                  Hiện chưa có lịch chiếu từ hôm nay trở đi.
+                </div>
+              )}
 
               <div className="space-y-4">
                 {currentShowtimeGroup?.rooms.map((room, idx) => {

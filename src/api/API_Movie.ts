@@ -1,5 +1,5 @@
 import axios from "axios";
-import { MovieResponse, DetailMovieResponse } from "@/src/interface/movie";
+import type { MovieResponse, DetailMovieResponse } from "@/src/interface/movie";
 import { API_URL } from "./url";
 
 export interface MovieGenresResponse {

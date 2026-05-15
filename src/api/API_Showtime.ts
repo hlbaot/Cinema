@@ -1,20 +1,33 @@
 import axios from 'axios'
 import { API_URL } from './url'
+import type {
+  ShowtimeDto,
+  ShowtimesByWeekResponse,
+  GetShowtimesByWeekParams,
+  GetDraftShowtimesParams,
+  ShowtimeFormatOption,
+  ShowtimeSeatItemDto,
+  DraftShowtimesPaginationDto,
+  DraftShowtimesResponse,
+  PublishAllShowtimeDraftByDateResponseDto,
+  PublishShowtimeResponseDto,
+  LockShowtimeSeatsRequest,
+  LockShowtimeSeatsResponse,
+} from '@/src/interface/showtime'
 
-export type ShowtimeDto = {
-  id?: string
-  movie_id?: string
-  movieId?: string
-  date?: string
-  start_time?: string
-  startTime?: string
-  // backend có thể trả thêm trường khác, nên giữ dạng index signature
-  [key: string]: unknown
-}
-
-export interface ShowtimesByWeekResponse {
-  success?: boolean
-  data?: unknown
+export type {
+  ShowtimeDto,
+  ShowtimesByWeekResponse,
+  GetShowtimesByWeekParams,
+  GetDraftShowtimesParams,
+  ShowtimeFormatOption,
+  ShowtimeSeatItemDto,
+  DraftShowtimesPaginationDto,
+  DraftShowtimesResponse,
+  PublishAllShowtimeDraftByDateResponseDto,
+  PublishShowtimeResponseDto,
+  LockShowtimeSeatsRequest,
+  LockShowtimeSeatsResponse,
 }
 
 function normalizeMovieId(s: ShowtimeDto): string | undefined {
@@ -26,7 +39,6 @@ function normalizeMovieId(s: ShowtimeDto): string | undefined {
 function normalizeYmd(s: ShowtimeDto): string | undefined {
   const d = typeof s.date === 'string' ? s.date : undefined
   if (!d) return undefined
-  // dự kiến backend trả dạng YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
   return d
 }
@@ -36,7 +48,6 @@ function normalizeStartTime(s: ShowtimeDto): string | undefined {
     | string
     | undefined
   if (!t) return undefined
-  // nếu có seconds, cắt còn HH:mm
   const m = t.match(/\b(\d{2}:\d{2})\b/)
   return m?.[1] ?? t.slice(0, 5)
 }
@@ -51,69 +62,6 @@ function parseShowtimes(raw: unknown): ShowtimeDto[] {
     if (Array.isArray(maybe)) return maybe as ShowtimeDto[]
   }
   return []
-}
-
-export interface GetShowtimesByWeekParams {
-  date?: string
-}
-
-export interface GetDraftShowtimesParams {
-  page?: number
-  limit?: number
-}
-
-export interface ShowtimeFormatOption {
-  value: string
-  label: string
-}
-
-export type ShowtimeSeatStatus = 'available' | 'reserved' | 'booked' | 'blocked'
-
-export interface ShowtimeSeatItemDto {
-  id: string
-  showtime_id: string
-  seat_id: string
-  seat_row: string
-  seat_number: number
-  type: string
-  price: number
-  status: ShowtimeSeatStatus | string
-}
-
-export interface DraftShowtimesPaginationDto {
-  message: string
-  showtimes: ShowtimeDto[]
-  total: number
-  page: number
-  limit: number
-  total_pages: number
-  current_page: number
-  next_page: number | null
-  previous_page: number | null
-  has_next_page: boolean
-  has_previous_page: boolean
-}
-
-export interface DraftShowtimesResponse {
-  success: boolean
-  data: DraftShowtimesPaginationDto
-}
-
-export interface PublishAllShowtimeDraftByDateResponseDto {
-  success: boolean
-  data: {
-    message: string
-    total_published: number
-    showtimes: ShowtimeDto[]
-  }
-}
-
-export interface PublishShowtimeResponseDto {
-  success: boolean
-  data: {
-    message: string
-    showtime: ShowtimeDto
-  }
 }
 
 function parseShowtimeFormats(raw: unknown): ShowtimeFormatOption[] {
@@ -266,13 +214,6 @@ export const API_GetShowtimeSeats = async (showtimeId: string): Promise<Showtime
   return parseShowtimeSeats(res.data)
 }
 
-export interface LockShowtimeSeatsRequest {
-  /** ID các showtime_seat cần khóa tạm thời. */
-  showtime_seat_ids: string[]
-}
-
-export type LockShowtimeSeatsResponse = boolean
-
 export const API_LockShowtimeSeats = async (
   showtimeId: string,
   body: LockShowtimeSeatsRequest,
@@ -376,7 +317,6 @@ export function getShowtimeStartTime(showtime: ShowtimeDto): string | undefined 
 
 export function getShowtimeId(showtime: ShowtimeDto): string | undefined {
   if (typeof showtime.id === 'string') return showtime.id
-  // một số backend có thể dùng tên khác
   const anyShowtime = showtime as Record<string, unknown>
   const v =
     (typeof anyShowtime.showtime_id === 'string' && anyShowtime.showtime_id) ||
@@ -395,4 +335,3 @@ export function getRoomId(showtime: ShowtimeDto): string | undefined {
   if (typeof anyShowtime.room_id === 'number') return String(anyShowtime.room_id)
   return undefined
 }
-

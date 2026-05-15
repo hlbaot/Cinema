@@ -9,7 +9,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import QRCode from 'qrcode'
 
 import { API_CreateBooking } from '@/src/api/API_Booking'
-import { API_CreatePayosPayment, API_GetBookingPaymentStatus, type CreatePayosPaymentResponse } from '@/src/api/API_Payment'
+import { API_CreatePayosPayment, API_GetBookingPaymentStatus } from '@/src/api/API_Payment'
+import type { CreatePayosPaymentResponse } from '@/src/interface/payment'
 import { API_LockShowtimeSeats } from '@/src/api/API_Showtime'
 import BookingProgressBar from '@/src/component/user/bookingProgressBar'
 import { useMovieDetail } from '@/src/hooks/useMovieDetail'
@@ -28,6 +29,11 @@ type PayosDisplayInfo = CreatePayosPaymentResponse & {
 }
 
 const PAYOS_METHOD = 'payos'
+
+/** PayOS redirect là full navigation → mất React state; lưu bookingId để callback vẫn vào được trang confirm. */
+function payosBookingSessionKey(sessionId: string) {
+  return `cinema_payos_booking_${sessionId}`
+}
 
 /** Gom thông báo lỗi từ body tạo booking (message / error / data / class-validator). */
 function extractCreateBookingErrorMessage(payload: unknown): string | null {
@@ -297,6 +303,9 @@ export default function PaymentPage() {
   const bankDisplay = getBankDisplay(payosInfo?.bank_bin)
 
   const goToConfirm = useCallback((bookingId: string) => {
+    if (typeof window !== 'undefined' && routeParams.sessionId) {
+      sessionStorage.removeItem(payosBookingSessionKey(routeParams.sessionId))
+    }
     const confirmParams = new URLSearchParams({
       bookingId,
       movie: displayMovieTitle,
@@ -358,10 +367,37 @@ export default function PaymentPage() {
     }
   }, [goToConfirm, paymentPaid, payosInfo?.bookingId])
 
+  /** Kiểm tra PayOS callback URL có chứa tham số thanh toán thành công không. */
+  function isPayosSuccessfulReturn(params: ReturnType<typeof useSearchParams>): boolean {
+    const code = params.get('code')
+    const status = params.get('status')
+    const cancel = params.get('cancel')
+    // PayOS trả về ?code=00&id=...&orderCode=... khi thanh toán thành công
+    // và ?cancel=true khi người dùng huỷ
+    if (cancel === 'true') return false
+    return code === '00' || status === 'PAID' || Boolean(params.get('id') && params.get('orderCode'))
+  }
+
+  /** Điều hướng sau khi PayOS callback. Nếu có bookingId thì về trang confirm, ngược lại về trang chủ. */
+  function goToUserHomeAfterPayosReturn() {
+    const sid = routeParams.sessionId
+    const stored =
+      typeof window !== 'undefined' && sid
+        ? sessionStorage.getItem(payosBookingSessionKey(sid))
+        : null
+    const bookingId = payosInfo?.bookingId || bookingIdInQuery || stored
+    if (bookingId) {
+      goToConfirm(bookingId)
+    } else {
+      router.replace('/trangChu')
+    }
+  }
+
   useEffect(() => {
     if (isPayosSuccessfulReturn(searchParams)) {
-      goToUserHome()
+      goToUserHomeAfterPayosReturn()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   function coerceBookingId(value: unknown): string | null {
@@ -531,6 +567,9 @@ export default function PaymentPage() {
         throw new Error('Không lấy được mã thanh toán PayOS.')
       }
       setPayosInfo({ ...payRes, bookingId })
+      if (typeof window !== 'undefined' && showtimeId) {
+        sessionStorage.setItem(payosBookingSessionKey(showtimeId), bookingId)
+      }
       setPaymentStatus(normalizeStatusText(payRes.payment_status || payRes.payos_status))
       setPaymentPaid(false)
       setPollingError('')
@@ -557,7 +596,10 @@ export default function PaymentPage() {
   }
 
   async function handleCheckPaymentStatus() {
-    const bookingId = payosInfo?.bookingId || bookingIdInQuery
+    const sid = routeParams.sessionId
+    const stored =
+      typeof window !== 'undefined' && sid ? sessionStorage.getItem(payosBookingSessionKey(sid)) : null
+    const bookingId = payosInfo?.bookingId || bookingIdInQuery || stored
     if (!bookingId) {
       alert('Thiếu bookingId để kiểm tra trạng thái.')
       return

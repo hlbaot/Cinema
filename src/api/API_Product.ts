@@ -1,5 +1,22 @@
 import axios from 'axios'
 import { API_URL } from './url'
+import type {
+  ProductDto,
+  CreateProductPayload,
+  UpdateProductPayload,
+  CreateProductResponse,
+  ProductsPageData,
+  ProductsListResponse,
+} from '@/src/interface/product'
+
+export type {
+  ProductDto,
+  CreateProductPayload,
+  UpdateProductPayload,
+  CreateProductResponse,
+  ProductsPageData,
+  ProductsListResponse,
+}
 
 export const PRODUCT_CATEGORY_LABELS = ['Bắp', 'Đồ uống', 'Combo', 'Khác'] as const
 export type ProductCategoryLabel = (typeof PRODUCT_CATEGORY_LABELS)[number]
@@ -24,49 +41,6 @@ export function displayCategory(api: string): ProductCategoryLabel {
 
 export function toApiCategory(label: ProductCategoryLabel): string {
   return LABEL_TO_API_CATEGORY[label] ?? 'OTHER'
-}
-
-export interface ProductDto {
-  id: string
-  name: string
-  category: string
-  price: number
-  stock: number
-  image_url: string | null
-  status: string
-  created_at: string
-}
-
-export interface CreateProductPayload {
-  name: string
-  category: string
-  price: number
-  stock?: number
-  image_url?: string
-  status?: string
-}
-
-export type UpdateProductPayload = Partial<CreateProductPayload>
-
-export interface CreateProductResponse {
-  success: boolean
-  data: {
-    message: string
-    product: ProductDto
-  }
-}
-
-export interface ProductsPageData {
-  message?: string
-  products?: ProductDto[]
-  total?: number
-  page?: number
-  limit?: number
-}
-
-export interface ProductsListResponse {
-  success: boolean
-  data: ProductsPageData | ProductDto[]
 }
 
 const parseProductsPage = (raw: unknown): { products: ProductDto[]; total?: number; limit?: number } => {
@@ -108,7 +82,6 @@ export const API_GetProducts = async (pageSize = 100): Promise<ProductDto[]> => 
     if (!products.length) break
     all.push(...products)
     if (reportedTotal !== undefined && all.length >= reportedTotal) break
-    // Ưu tiên `limit` trong JSON (đúng khi server tự giới hạn page size)
     if (serverLimit !== undefined) {
       if (products.length < serverLimit) break
     } else if (products.length < pageSize) {

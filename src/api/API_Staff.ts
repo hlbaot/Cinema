@@ -1,77 +1,32 @@
 import axios from 'axios'
+import { API_AdminCreateStaff, API_AdminGetStaffs } from '@/src/api/API_Admin'
 import { API_URL } from './url'
+import type {
+  TicketVerifyDetail,
+  TicketVerifyOutcome,
+  StaffTicketSaleDto,
+  CreateStaffRequest,
+  UserItemDto,
+  CreateStaffResponseDto,
+  GetUserResponseDto,
+  TicketCheckInResponseDto,
+} from '@/src/interface/staff'
+
+export type {
+  TicketVerifyDetail,
+  TicketVerifyOutcome,
+  StaffTicketSaleDto,
+  CreateStaffRequest,
+  UserItemDto,
+  CreateStaffResponseDto,
+  GetUserResponseDto,
+  TicketCheckInResponseDto,
+}
 
 /** Đổi path cho khớp backend Nest khi có module staff/tickets */
 const TICKET_VERIFY_PATH = '/api/v1/tickets/verify'
 const TICKET_CHECKIN_PATH = '/api/v1/tickets'
 const TICKET_SALES_PATH = '/api/v1/staff/ticket-sales'
-const CREATE_STAFF_PATH = '/api/v1/users/staff'
-const GET_STAFFS_PATH = '/api/v1/users/staffs'
-
-export interface TicketVerifyDetail {
-  movieTitle?: string
-  showtime?: string
-  roomName?: string
-  seats?: string[]
-  status?: string
-}
-
-export interface TicketVerifyOutcome {
-  valid: boolean
-  message: string
-  detail?: TicketVerifyDetail
-  source: 'api' | 'demo'
-}
-
-export interface StaffTicketSaleDto {
-  id: string
-  code?: string
-  movieTitle?: string
-  showtime?: string
-  seats?: string[]
-  amountVnd: number
-  status?: string
-  createdAt: string
-}
-
-export interface CreateStaffRequest {
-  full_name: string
-  email: string
-  password: string
-  phone?: string
-  avatar_url?: string
-}
-
-export interface UserItemDto {
-  id: string
-  email: string
-  full_name: string
-  phone: string | null
-  avatar_url: string | null
-  role: string
-  status: string
-  auth_provider: 'local' | 'google'
-  created_at: string
-}
-
-export interface CreateStaffResponseDto {
-  success: boolean
-  data: {
-    message: string
-    staff: UserItemDto
-  }
-}
-
-export interface GetUserResponseDto {
-  success: boolean
-  data: {
-    message: string
-    users: UserItemDto[]
-    total: number
-    page: number
-    limit: number
-  }
-}
 
 function errText(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -146,16 +101,6 @@ export async function API_VerifyTicket(code: string): Promise<TicketVerifyOutcom
   }
 }
 
-export interface TicketCheckInResponseDto {
-  success: boolean
-  data?: {
-    message?: string
-    ticket?: Record<string, unknown>
-    [key: string]: unknown
-  }
-  message?: string
-}
-
 /** Check-in vé sau khi verify (role staff/admin). */
 export async function API_CheckInTicket(
   ticketId: string,
@@ -213,20 +158,20 @@ export async function API_GetStaffTicketSales(page = 1, limit = 50): Promise<Sta
   }
 }
 
-/** Tạo tài khoản staff (role admin). */
+/** Tạo tài khoản staff (role admin) — dùng chung layer chuẩn hoá với trang Quản lý nhân viên. */
 export async function API_CreateStaff(
   payload: CreateStaffRequest,
   accessToken?: string,
 ): Promise<CreateStaffResponseDto> {
-  const headers: Record<string, string> = {}
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`
-  }
-
-  const res = await axios.post<CreateStaffResponseDto>(`${API_URL}${CREATE_STAFF_PATH}`, payload, {
-    headers,
-  })
-  return res.data
+  return API_AdminCreateStaff(
+    {
+      full_name: payload.full_name,
+      email: payload.email,
+      password: payload.password,
+      phone: payload.phone,
+    },
+    accessToken,
+  )
 }
 
 /** Lấy danh sách staff (role admin). */
@@ -235,14 +180,5 @@ export async function API_GetStaffs(
   limit = 20,
   accessToken?: string,
 ): Promise<GetUserResponseDto> {
-  const headers: Record<string, string> = {}
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`
-  }
-
-  const res = await axios.get<GetUserResponseDto>(`${API_URL}${GET_STAFFS_PATH}`, {
-    params: { page, limit },
-    headers,
-  })
-  return res.data
+  return API_AdminGetStaffs(page, limit, accessToken)
 }

@@ -1,5 +1,6 @@
 import axios from 'axios'
-import { SeatItem } from '../interface/movie'
+import { API_URL } from './url'
+import type { SeatItem } from '@/src/interface/movie'
 
 /**
  * Lấy danh sách ghế của một suất chiếu từ Backend
@@ -8,10 +9,9 @@ import { SeatItem } from '../interface/movie'
  */
 export const API_GetShowtimeSeats = async (showtimeId: string): Promise<SeatItem[]> => {
   try {
-    const url = `/api/cinema/showtimes/${showtimeId}/seats`
-    console.log('Calling API:', url)
+    const url = `${API_URL}/api/v1/showtimes/${showtimeId}/seats`
     const response = await axios.get(url)
-    
+
     if (Array.isArray(response.data)) {
       return response.data
     }
@@ -22,7 +22,6 @@ export const API_GetShowtimeSeats = async (showtimeId: string): Promise<SeatItem
 
     return []
   } catch (error) {
-    // Log lỗi để dễ dàng debug nếu API trả về 404 hoặc lỗi khác
     console.error('Error fetching showtime seats:', error)
     return []
   }

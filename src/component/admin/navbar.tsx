@@ -111,7 +111,7 @@ const adminLinks: AdminLink[] = [
   { href: "/admin/qlySchedule", label: "Quản lý lịch chiếu", icon: <CalendarIcon /> },
   { href: "/admin/qlyUser", label: "Quản lý người dùng", icon: <UserIcon /> },
   { href: "/admin/qlyCorn", label: "Quản lý bắp nước", icon: <TicketIcon /> },
-  { href: "/admin/qlyStaff", label: "Quản lý nhân viên", icon: <StaffIcon /> },
+  { href: "/admin/qlyNhanVien", label: "Quản lý nhân viên", icon: <StaffIcon /> },
 ];
 
 export default function AdminNavbar() {

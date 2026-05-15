@@ -1,19 +1,8 @@
 import { useState, useEffect } from "react";
 import { API_GetAllMovies } from "@/src/api/API_Movie";
-import { Movie as APIMovie } from "@/src/interface/movie";
+import type { Movie as APIMovie, MappedMovie } from "@/src/interface/movie";
 
-export interface MappedMovie {
-  id: string;
-  title: string;
-  age_rating: string;
-  trailer: string;
-  poster: string;
-  description: string;
-  minutes: number;
-  status: string;
-  score: number;
-  genres: string[];
-}
+export type { MappedMovie }
 
 const statusMap: Record<string, string> = {
   NOW_SHOWING: "Đang chiếu",

@@ -60,3 +60,33 @@ export interface DetailMovieResponse {
     success: boolean;
     data: MovieDetail;
 }
+
+export interface MappedMovie {
+  id: string;
+  title: string;
+  age_rating: string;
+  trailer: string;
+  poster: string;
+  description: string;
+  minutes: number;
+  status: string;
+  score: number;
+  genres: string[];
+}
+
+export interface MappedMovieDetail extends MappedMovie {
+  director: string;
+  actors: string[];
+  showtimes: {
+    date: string;
+    rooms: {
+      room_id: string;
+      room_name: string;
+      format: string;
+      sessions: {
+        id: string;
+        time: string;
+      }[];
+    }[];
+  }[];
+}

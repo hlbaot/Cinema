@@ -1,40 +1,12 @@
-import axios from "axios";
-import { API_URL } from "./url";
+import axios from 'axios'
+import { API_URL } from './url'
+import type {
+  CreatePayosPaymentRequest,
+  CreatePayosPaymentResponse,
+  BookingPaymentStatusResponse,
+} from '@/src/interface/payment'
 
-export interface CreatePayosPaymentRequest {
-  booking_id: string;
-}
-
-export interface CreatePayosPaymentResponse {
-  payment_code?: string;
-  checkoutUrl?: string;
-  payment_id?: string;
-  order_code?: number;
-  qrCode?: string;
-  qr_image_data_url?: string;
-  amount?: number;
-  currency?: string;
-  provider?: string;
-  payment_status?: string;
-  payos_status?: string;
-  description?: string;
-  expired_at?: number | null;
-  bank_bin?: string;
-  account_number?: string;
-  account_name?: string;
-  movie?: { title?: string; [key: string]: unknown };
-  products?: unknown[];
-  total_price?: number;
-  booking?: {
-    booking_code?: string;
-    movie?: { title?: string; [key: string]: unknown };
-    showtime?: { cinema_name?: string; room_name?: string; [key: string]: unknown };
-    seats?: unknown[];
-    products?: unknown[];
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
+export type { CreatePayosPaymentRequest, CreatePayosPaymentResponse, BookingPaymentStatusResponse }
 
 function normalizeCreatePayosPaymentResponse(raw: unknown): CreatePayosPaymentResponse {
   const root = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -67,25 +39,6 @@ function normalizeCreatePayosPaymentResponse(raw: unknown): CreatePayosPaymentRe
     total_price: typeof data.total_price === "number" ? data.total_price : undefined,
     booking: data.booking && typeof data.booking === "object" ? data.booking as CreatePayosPaymentResponse["booking"] : undefined,
   };
-}
-
-export interface BookingPaymentStatusResponse {
-  success: boolean;
-  is_paid?: boolean;
-  status?: string;
-  payment_status?: string;
-  payos_status?: string;
-  data?: {
-    message?: string;
-    status?: string;
-    payment_status?: string;
-    payos_status?: string;
-    paid?: boolean;
-    is_paid?: boolean;
-    booking_id?: string;
-    [key: string]: unknown;
-  };
-  message?: string;
 }
 
 export const API_CreatePayosPayment = async (
