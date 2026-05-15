@@ -1,7 +1,7 @@
 "use client";
 
 import Cookies from "js-cookie";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { MembershipLevel } from "@/src/lib/auth-shared";
 import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 
@@ -87,17 +87,8 @@ function getUserFromCookies(): UserProfile | null {
 }
 
 export default function ModalProfile({ open, onClose }: ModalProfileProps) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      const timer = window.setTimeout(() => {
-        setUser(getUserFromCookies());
-      }, 0);
-
-      return () => window.clearTimeout(timer);
-    }
-  }, [open]);
+  const router = useRouter();
+  const user = open ? getUserFromCookies() : null;
 
   function handleLogout() {
     clearAuthCookies();

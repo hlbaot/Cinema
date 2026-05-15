@@ -111,7 +111,15 @@ export function hasLoginData(data?: VerifyOtpResponse["data"]): data is LoginRes
   return Boolean(data?.access_token && data.refresh_token && data.user);
 }
 
-export function decodeJwtPayload(token: string): Record<string, string> | null {
+export type DecodedJwtPayload = {
+  email?: string;
+  sub?: string;
+  id?: string;
+  role?: string;
+  [key: string]: unknown;
+};
+
+export function decodeJwtPayload(token: string): DecodedJwtPayload | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
@@ -122,7 +130,8 @@ export function decodeJwtPayload(token: string): Record<string, string> | null {
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
-    return JSON.parse(jsonPayload);
+    const parsed: unknown = JSON.parse(jsonPayload);
+    return parsed && typeof parsed === "object" ? (parsed as DecodedJwtPayload) : null;
   } catch {
     return null;
   }
