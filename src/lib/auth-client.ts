@@ -52,6 +52,11 @@ export function markGoogleLogin() {
   Cookies.set("AUTH_PROVIDER", "google", { path: '/' });
 }
 
+export function goToUserHome() {
+  window.sessionStorage.setItem("cinepro-intro-seen", "true");
+  window.location.assign("/trangChu");
+}
+
 function flattenBackendMessage(message: unknown): string | undefined {
   if (typeof message === "string" && message.trim()) {
     return message.trim();

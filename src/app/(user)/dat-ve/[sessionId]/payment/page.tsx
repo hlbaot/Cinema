@@ -358,6 +358,12 @@ export default function PaymentPage() {
     }
   }, [goToConfirm, paymentPaid, payosInfo?.bookingId])
 
+  useEffect(() => {
+    if (isPayosSuccessfulReturn(searchParams)) {
+      goToUserHome()
+    }
+  }, [searchParams])
+
   function coerceBookingId(value: unknown): string | null {
     if (typeof value === 'string') {
       const t = value.trim()

@@ -3,7 +3,7 @@
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import type { MembershipLevel } from "@/src/lib/auth-shared";
-import { clearAuthCookies } from "@/src/lib/auth-client";
+import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 
 type UserProfile = {
   id: string;
@@ -93,8 +93,7 @@ export default function ModalProfile({ open, onClose }: ModalProfileProps) {
   function handleLogout() {
     clearAuthCookies();
     onClose();
-    router.push("/trangChu");
-    router.refresh();
+    goToUserHome();
   }
 
   if (!open) return null;

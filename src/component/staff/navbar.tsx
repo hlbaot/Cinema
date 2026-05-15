@@ -1,8 +1,8 @@
 "use client";
 
-import Cookies from "js-cookie";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 
 const staffLinks = [
@@ -22,16 +22,11 @@ function LogoutIcon() {
 }
 
 export default function StaffNavbar() {
-  const router = useRouter();
   const pathname = usePathname();
 
   function handleLogout() {
-    Cookies.remove("ROLE");
-    Cookies.remove("USER_NAME");
-    Cookies.remove("USER_POINTS");
-    Cookies.remove("MEMBERSHIP_LEVEL");
-    router.push("/trangChu");
-    router.refresh();
+    clearAuthCookies();
+    goToUserHome();
   }
 
   return (

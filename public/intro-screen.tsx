@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import styles from "@/src/scss/intro-screen.module.scss";
 
 const INTRO_DURATION_MS = 3200;
@@ -25,16 +26,16 @@ type IntroScreenProps = {
 };
 
 export default function IntroScreen({ children }: IntroScreenProps) {
-  const [visible, setVisible] = useState(true);
+  const pathname = usePathname();
+  const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(true);
 
   useEffect(() => {
-    const hasSeenIntro = window.localStorage.getItem(SESSION_KEY) === "true";
-
-    if (hasSeenIntro) {
+    if (pathname !== "/") {
       const skipTimer = window.setTimeout(() => {
         setVisible(false);
+        setExiting(false);
         setReady(true);
       }, 0);
 
@@ -43,21 +44,43 @@ export default function IntroScreen({ children }: IntroScreenProps) {
       };
     }
 
+    const hasSeenIntro = window.sessionStorage.getItem(SESSION_KEY) === "true";
+
+    if (hasSeenIntro) {
+      const skipTimer = window.setTimeout(() => {
+        setVisible(false);
+        setExiting(false);
+        setReady(true);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(skipTimer);
+      };
+    }
+
+    window.sessionStorage.setItem(SESSION_KEY, "true");
+
+    const startTimer = window.setTimeout(() => {
+      setVisible(true);
+      setExiting(false);
+      setReady(false);
+    }, 0);
+
     const exitTimer = window.setTimeout(() => {
       setExiting(true);
     }, INTRO_DURATION_MS);
 
     const doneTimer = window.setTimeout(() => {
-      window.localStorage.setItem(SESSION_KEY, "true");
       setVisible(false);
       setReady(true);
     }, INTRO_DURATION_MS + EXIT_DURATION_MS);
 
     return () => {
+      window.clearTimeout(startTimer);
       window.clearTimeout(exitTimer);
       window.clearTimeout(doneTimer);
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!visible) {
