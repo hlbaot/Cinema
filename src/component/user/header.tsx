@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import SignInPage from "@/src/app/auth/signin";
 import SignUpPage from "@/src/app/auth/signup";
 import ModalProfile from "@/src/component/user/modalProfile";
-import { clearAuthCookies } from "@/src/lib/auth-client";
+import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 import type { HeaderUser, MembershipLevel } from "@/src/lib/auth-shared";
 
 const authModalStyle = {
@@ -193,8 +193,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
     setUserOverride(null);
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
-    router.push("/trangChu");
-    router.refresh();
+    goToUserHome();
   }
 
   function openSignInModal() {

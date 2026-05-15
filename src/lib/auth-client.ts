@@ -21,6 +21,7 @@ export function saveLoginCookies(
   Cookies.set("ACCESS_TOKEN", data.access_token, { path: '/' });
   Cookies.set("REFRESH_TOKEN", data.refresh_token, { path: '/' });
   Cookies.set("ROLE", role, { path: '/' });
+  Cookies.set("AUTH_PROVIDER", provider, { path: '/' });
 
   // Cố định lưu các trường quan trọng (email, id, name) để đảm bảo không bị thiếu
   if (data.user.id) Cookies.set("USER_ID", data.user.id, { path: '/' });
@@ -49,6 +50,11 @@ export function clearAuthCookies() {
 
 export function markGoogleLogin() {
   Cookies.set("AUTH_PROVIDER", "google", { path: '/' });
+}
+
+export function goToUserHome() {
+  window.sessionStorage.setItem("cinepro-intro-seen", "true");
+  window.location.assign("/trangChu");
 }
 
 function flattenBackendMessage(message: unknown): string | undefined {
@@ -105,7 +111,7 @@ export function hasLoginData(data?: VerifyOtpResponse["data"]): data is LoginRes
   return Boolean(data?.access_token && data.refresh_token && data.user);
 }
 
-export function decodeJwtPayload(token: string): any {
+export function decodeJwtPayload(token: string): Record<string, string> | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
@@ -117,7 +123,7 @@ export function decodeJwtPayload(token: string): any {
         .join('')
     );
     return JSON.parse(jsonPayload);
-  } catch (error) {
+  } catch {
     return null;
   }
 }

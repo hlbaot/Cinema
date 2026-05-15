@@ -1,7 +1,6 @@
 "use client";
 
-import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
+import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 
 function LogoutIcon() {
   return (
@@ -17,15 +16,9 @@ function LogoutIcon() {
 }
 
 export default function AdminHeader() {
-  const router = useRouter();
-
   function handleLogout() {
-    Cookies.remove("ROLE");
-    Cookies.remove("USER_NAME");
-    Cookies.remove("USER_POINTS");
-    Cookies.remove("MEMBERSHIP_LEVEL");
-    router.push("/auth/signin");
-    router.refresh();
+    clearAuthCookies();
+    goToUserHome();
   }
 
   return (

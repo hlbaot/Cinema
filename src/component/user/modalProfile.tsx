@@ -1,10 +1,9 @@
 "use client";
 
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { MembershipLevel } from "@/src/lib/auth-shared";
-import { clearAuthCookies } from "@/src/lib/auth-client";
+import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 
 type UserProfile = {
   id: string;
@@ -88,20 +87,22 @@ function getUserFromCookies(): UserProfile | null {
 }
 
 export default function ModalProfile({ open, onClose }: ModalProfileProps) {
-  const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (open) {
-      setUser(getUserFromCookies());
+      const timer = window.setTimeout(() => {
+        setUser(getUserFromCookies());
+      }, 0);
+
+      return () => window.clearTimeout(timer);
     }
   }, [open]);
 
   function handleLogout() {
     clearAuthCookies();
     onClose();
-    router.push("/trangChu");
-    router.refresh();
+    goToUserHome();
   }
 
   if (!open) return null;

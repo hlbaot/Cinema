@@ -1,9 +1,9 @@
 "use client";
 
-import Cookies from "js-cookie";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
 
 type AdminLink = {
   href: string;
@@ -116,16 +116,11 @@ const adminLinks: AdminLink[] = [
 
 export default function AdminNavbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   function handleLogout() {
-    Cookies.remove("ROLE");
-    Cookies.remove("USER_NAME");
-    Cookies.remove("USER_POINTS");
-    Cookies.remove("MEMBERSHIP_LEVEL");
-    router.push("/trangChu");
-    router.refresh();
+    clearAuthCookies();
+    goToUserHome();
   }
 
   const sidebarContent = (

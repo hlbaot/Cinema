@@ -1,7 +1,7 @@
 'use client'
 
 import Cookies from 'js-cookie'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { QrCode, ReceiptText, ShieldCheck } from 'lucide-react'
 import { useParams, useSearchParams } from 'next/navigation'
@@ -10,7 +10,7 @@ import { API_CreateBooking } from '@/src/api/API_Booking'
 import { API_CreatePayosPayment, API_GetBookingPaymentStatus } from '@/src/api/API_Payment'
 import { API_LockShowtimeSeats } from '@/src/api/API_Showtime'
 import BookingProgressBar from '@/src/component/user/bookingProgressBar'
-import { decodeJwtPayload, getApiErrorMessage } from '@/src/lib/auth-client'
+import { decodeJwtPayload, getApiErrorMessage, goToUserHome } from '@/src/lib/auth-client'
 import { formatVnd } from '@/src/lib/utils'
 
 type SelectedFoodItem = {
@@ -85,6 +85,34 @@ function parseFoodParam(value: string | null): SelectedFoodItem[] {
   }
 }
 
+function isPayosSuccessfulReturn(searchParams: URLSearchParams) {
+  const code = searchParams.get('code')
+  const status = searchParams.get('status')?.toLowerCase()
+  const cancel = searchParams.get('cancel')?.toLowerCase()
+
+  return (
+    code === '00' ||
+    cancel === 'false' ||
+    status === 'paid' ||
+    status === 'success' ||
+    status === 'successful' ||
+    status === 'completed'
+  )
+}
+
+function isPaidStatus(status?: string, paid?: boolean) {
+  const normalizedStatus = status?.toLowerCase()
+
+  return (
+    paid === true ||
+    normalizedStatus === 'paid' ||
+    normalizedStatus === 'success' ||
+    normalizedStatus === 'successful' ||
+    normalizedStatus === 'completed' ||
+    normalizedStatus === 'đã thanh toán'
+  )
+}
+
 export default function PaymentPage() {
   const routeParams = useParams<{ sessionId: string }>()
   const searchParams = useSearchParams()
@@ -105,6 +133,12 @@ export default function PaymentPage() {
   const ticketTotal = Number(searchParams.get('ticketTotal') || 0)
   const foodTotal = Number(searchParams.get('foodTotal') || 0)
   const total = Number(searchParams.get('total') || ticketTotal + foodTotal)
+
+  useEffect(() => {
+    if (isPayosSuccessfulReturn(searchParams)) {
+      goToUserHome()
+    }
+  }, [searchParams])
 
   function coerceBookingId(value: unknown): string | null {
     if (typeof value === 'string') {
@@ -260,6 +294,9 @@ export default function PaymentPage() {
       const accessToken = Cookies.get('ACCESS_TOKEN')
       const statusRes = await API_GetBookingPaymentStatus(bookingIdInQuery, accessToken)
       alert(statusRes.data?.message || `Trạng thái thanh toán: ${statusRes.data?.status || 'không rõ'}`)
+      if (isPaidStatus(statusRes.data?.status, statusRes.data?.paid)) {
+        goToUserHome()
+      }
     } catch (error) {
       alert(getApiErrorMessage(error, 'Không kiểm tra được trạng thái thanh toán.'))
     }
