@@ -21,6 +21,7 @@ export function saveLoginCookies(
   Cookies.set("ACCESS_TOKEN", data.access_token, { path: '/' });
   Cookies.set("REFRESH_TOKEN", data.refresh_token, { path: '/' });
   Cookies.set("ROLE", role, { path: '/' });
+  Cookies.set("AUTH_PROVIDER", provider, { path: '/' });
 
   // Cố định lưu các trường quan trọng (email, id, name) để đảm bảo không bị thiếu
   if (data.user.id) Cookies.set("USER_ID", data.user.id, { path: '/' });
@@ -105,7 +106,15 @@ export function hasLoginData(data?: VerifyOtpResponse["data"]): data is LoginRes
   return Boolean(data?.access_token && data.refresh_token && data.user);
 }
 
-export function decodeJwtPayload(token: string): any {
+export type DecodedJwtPayload = {
+  email?: string;
+  sub?: string;
+  id?: string;
+  role?: string;
+  [key: string]: unknown;
+};
+
+export function decodeJwtPayload(token: string): DecodedJwtPayload | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
@@ -116,8 +125,9 @@ export function decodeJwtPayload(token: string): any {
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
-    return JSON.parse(jsonPayload);
-  } catch (error) {
+    const parsed: unknown = JSON.parse(jsonPayload);
+    return parsed && typeof parsed === "object" ? (parsed as DecodedJwtPayload) : null;
+  } catch {
     return null;
   }
 }
