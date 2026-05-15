@@ -18,9 +18,9 @@ export default async function UserLayout({
   }
 
   return (
-    <div className="">
+    <div className="min-w-0 overflow-x-hidden">
       <UserHeader user={user} />
-      <main className="">
+      <main className="min-w-0 overflow-x-hidden">
         {children}
       </main>
       <UserFooter />

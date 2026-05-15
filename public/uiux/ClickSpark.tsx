@@ -156,8 +156,10 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
     <div
       style={{
         width: '100%',
+        maxWidth: '100%',
         minHeight: '100vh',
-        position: 'relative'
+        position: 'relative',
+        overflowX: 'hidden',
       }}
       onClick={handleClick}
     >

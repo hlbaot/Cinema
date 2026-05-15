@@ -1,6 +1,18 @@
 .shell {
   position: relative;
   min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Che nội dung trang trước khi client quyết định intro — tránh nháy (hydration) */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: #040404;
+  pointer-events: none;
 }
 
 .content {

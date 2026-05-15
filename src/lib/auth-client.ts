@@ -53,7 +53,8 @@ export function markGoogleLogin() {
 }
 
 export function goToUserHome() {
-  window.sessionStorage.setItem("cinepro-intro-seen", "true");
+  window.sessionStorage.setItem("cinepro-intro-skip-next", "true");
+  window.sessionStorage.setItem("cinepro-intro-seen-v2", "true");
   window.location.assign("/trangChu");
 }
 

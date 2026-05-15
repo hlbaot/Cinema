@@ -15,9 +15,9 @@ export default async function StaffLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-screen overflow-x-hidden bg-zinc-950 text-zinc-100">
       <StaffNavbar />
-      <main className="flex-1 bg-gradient-to-br from-zinc-950 via-zinc-950 to-emerald-950/20 p-6 sm:p-8">{children}</main>
+      <main className="min-w-0 flex-1 overflow-x-hidden bg-gradient-to-br from-zinc-950 via-zinc-950 to-emerald-950/20 p-6 sm:p-8">{children}</main>
     </div>
   );
 }

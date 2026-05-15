@@ -1,12 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import styles from "@/src/scss/intro-screen.module.scss";
 
 const INTRO_DURATION_MS = 3200;
 const EXIT_DURATION_MS = 700;
-const SESSION_KEY = "cinepro-intro-seen";
+const SESSION_KEY = "cinepro-intro-seen-v2";
+const SKIP_NEXT_KEY = "cinepro-intro-skip-next";
+
+/** Trang “vào web” — intro chỉ chạy lần đầu session tại đây */
+function shouldPlayIntro(pathname: string) {
+  return pathname === "/" || pathname === "/trangChu";
+}
+
+function readSessionFlag(key: string) {
+  try {
+    return window.sessionStorage.getItem(key) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeSessionFlag(key: string) {
+  try {
+    window.sessionStorage.setItem(key, "true");
+  } catch {
+    /* ignore */
+  }
+}
+
+function removeSessionFlag(key: string) {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
 
 function FilmLogo() {
   return (
@@ -21,90 +51,114 @@ function FilmLogo() {
   );
 }
 
+type IntroPhase = "boot" | "intro" | "exiting" | "idle";
+
 type IntroScreenProps = {
   children: React.ReactNode;
 };
 
 export default function IntroScreen({ children }: IntroScreenProps) {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
-  const [exiting, setExiting] = useState(false);
-  const [ready, setReady] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const [phase, setPhase] = useState<IntroPhase>("boot");
+  const timersRef = useRef<number[]>([]);
+  const playedRef = useRef(false);
+
+  const clearTimers = () => {
+    timersRef.current.forEach((id) => window.clearTimeout(id));
+    timersRef.current = [];
+  };
+
+  const schedule = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  };
 
   useEffect(() => {
-    if (pathname !== "/") {
-      const skipTimer = window.setTimeout(() => {
-        setVisible(false);
-        setExiting(false);
-        setReady(true);
-      }, 0);
+    setMounted(true);
+  }, []);
 
-      return () => {
-        window.clearTimeout(skipTimer);
-      };
+  useEffect(() => {
+    if (!mounted) return;
+
+    clearTimers();
+
+    const finishIdle = () => {
+      setPhase("idle");
+    };
+
+    const skipIntro = () => {
+      playedRef.current = true;
+      finishIdle();
+    };
+
+    if (!shouldPlayIntro(pathname)) {
+      skipIntro();
+      return () => clearTimers();
     }
 
-    const hasSeenIntro = window.sessionStorage.getItem(SESSION_KEY) === "true";
-
-    if (hasSeenIntro) {
-      const skipTimer = window.setTimeout(() => {
-        setVisible(false);
-        setExiting(false);
-        setReady(true);
-      }, 0);
-
-      return () => {
-        window.clearTimeout(skipTimer);
-      };
+    if (readSessionFlag(SKIP_NEXT_KEY)) {
+      removeSessionFlag(SKIP_NEXT_KEY);
+      writeSessionFlag(SESSION_KEY);
+      skipIntro();
+      return () => clearTimers();
     }
 
-    window.sessionStorage.setItem(SESSION_KEY, "true");
+    if (readSessionFlag(SESSION_KEY)) {
+      skipIntro();
+      return () => clearTimers();
+    }
 
-    const startTimer = window.setTimeout(() => {
-      setVisible(true);
-      setExiting(false);
-      setReady(false);
-    }, 0);
+    // Đã bắt đầu intro trong session này (vd. redirect / → /trangChu)
+    if (playedRef.current) {
+      return () => clearTimers();
+    }
 
-    const exitTimer = window.setTimeout(() => {
-      setExiting(true);
-    }, INTRO_DURATION_MS);
+    playedRef.current = true;
+    setPhase("intro");
 
-    const doneTimer = window.setTimeout(() => {
-      setVisible(false);
-      setReady(true);
+    schedule(() => setPhase("exiting"), INTRO_DURATION_MS);
+
+    schedule(() => {
+      writeSessionFlag(SESSION_KEY);
+      setPhase("idle");
     }, INTRO_DURATION_MS + EXIT_DURATION_MS);
 
-    return () => {
-      window.clearTimeout(startTimer);
-      window.clearTimeout(exitTimer);
-      window.clearTimeout(doneTimer);
-    };
-  }, [pathname]);
+    return () => clearTimers();
+  }, [mounted, pathname]);
 
   useEffect(() => {
-    if (!visible) {
+    const lockScroll = mounted && (phase === "intro" || phase === "exiting" || phase === "boot");
+    if (!lockScroll) {
       document.body.style.removeProperty("overflow");
       return;
     }
 
     document.body.style.overflow = "hidden";
-
     return () => {
       document.body.style.removeProperty("overflow");
     };
-  }, [visible]);
+  }, [mounted, phase]);
+
+  const showBoot = !mounted || phase === "boot";
+  const showIntroOverlay = phase === "intro" || phase === "exiting";
+  const hideContent = showBoot || showIntroOverlay;
 
   const contentClassName = `${styles.content} ${
-    ready || !visible ? styles.contentVisible : styles.contentHidden
+    hideContent ? styles.contentHidden : styles.contentVisible
   }`;
-  const overlayClassName = `${styles.overlay} ${exiting ? styles.overlayExiting : ""}`;
+  const overlayClassName = `${styles.overlay} ${phase === "exiting" ? styles.overlayExiting : ""}`;
 
   return (
     <div className={styles.shell}>
-      <div className={contentClassName}>{children}</div>
+      <div className={contentClassName} aria-hidden={hideContent}>
+        {children}
+      </div>
 
-      {visible ? (
+      {showBoot ? <div className={styles.boot} aria-hidden="true" /> : null}
+
+      {showIntroOverlay ? (
         <div className={overlayClassName} role="status" aria-live="polite" aria-label="Loading CinePro">
           <div className={styles.centerpiece}>
             <div className={styles.halo} />
