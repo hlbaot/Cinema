@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import BoxChat from "@/src/component/user/boxChat";
 import UserFooter from "@/src/component/user/footer";
 import UserHeader from "@/src/component/user/header";
 import { getHeaderUserFromCookies, getRoleFromCookies, getRoleHomePath } from "@/src/lib/auth";
@@ -23,6 +24,7 @@ export default async function UserLayout({
         {children}
       </main>
       <UserFooter />
+      <BoxChat />
     </div>
   );
 }

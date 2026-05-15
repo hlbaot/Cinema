@@ -1,17 +1,37 @@
 'use client'
 
 /**
- * Trang nhân viên: nhập mã vé hoặc quét QR → gọi API_VerifyTicket.
- * Kết quả hiển thị hợp lệ/không + chi tiết (nếu có). Mã DEMO* xử lý cục bộ (xem API_Staff).
+ * Trang nhân viên: nhập mã vé hoặc quét QR → verify QR → check-in vé nếu hợp lệ.
+ * Mã DEMO* xử lý cục bộ để test giao diện khi chưa có server.
  */
 import { useCallback, useState } from 'react'
-import { API_VerifyTicket, type TicketVerifyDetail } from '@/src/api/API_Staff'
+import Cookies from 'js-cookie'
+import { API_CheckInTicket, API_VerifyTicket, type TicketVerifyDetail, type TicketVerifyOutcome } from '@/src/api/API_Staff'
 import QrTicketScanner from '@/src/component/staff/QrTicketScanner'
+import { getApiErrorMessage } from '@/src/lib/auth-client'
 
 /** Bảng thông tin vé sau khi verify thành công (field nào có thì hiện). */
 function DetailBlock({ detail }: { detail: TicketVerifyDetail }) {
   return (
     <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+      {detail.ticketCode ? (
+        <>
+          <dt className="font-semibold text-zinc-500">Mã vé</dt>
+          <dd className="text-zinc-100">{detail.ticketCode}</dd>
+        </>
+      ) : null}
+      {detail.bookingCode ? (
+        <>
+          <dt className="font-semibold text-zinc-500">Mã đặt vé</dt>
+          <dd className="text-zinc-100">{detail.bookingCode}</dd>
+        </>
+      ) : null}
+      {detail.customerName ? (
+        <>
+          <dt className="font-semibold text-zinc-500">Khách hàng</dt>
+          <dd className="text-zinc-100">{detail.customerName}</dd>
+        </>
+      ) : null}
       {detail.movieTitle ? (
         <>
           <dt className="font-semibold text-zinc-500">Phim</dt>
@@ -40,8 +60,22 @@ function DetailBlock({ detail }: { detail: TicketVerifyDetail }) {
       ) : null}
       {detail.status ? (
         <>
-          <dt className="font-semibold text-zinc-500">Trạng thái</dt>
+          <dt className="font-semibold text-zinc-500">Trạng thái vé</dt>
           <dd className="text-zinc-100">{detail.status}</dd>
+        </>
+      ) : null}
+      {detail.bookingStatus ? (
+        <>
+          <dt className="font-semibold text-zinc-500">Thanh toán</dt>
+          <dd className="text-zinc-100">{detail.bookingStatus}</dd>
+        </>
+      ) : null}
+      {detail.checkedInAt ? (
+        <>
+          <dt className="font-semibold text-zinc-500">Check-in lúc</dt>
+          <dd className="text-zinc-100">
+            {Number.isNaN(Date.parse(detail.checkedInAt)) ? detail.checkedInAt : new Date(detail.checkedInAt).toLocaleString('vi-VN')}
+          </dd>
         </>
       ) : null}
     </dl>
@@ -51,18 +85,59 @@ function DetailBlock({ detail }: { detail: TicketVerifyDetail }) {
 export default function StaffCheckTicketPage() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<Awaited<ReturnType<typeof API_VerifyTicket>> | null>(null)
+  const [result, setResult] = useState<TicketVerifyOutcome | null>(null)
 
   // Dùng chung cho form nhập tay và QrTicketScanner.onScan.
-  const runVerify = useCallback(async (rawCode: string) => {
+  const handleScan = useCallback(async (rawCode: string) => {
     const c = rawCode.trim()
     if (!c) return
     setLoading(true)
     setResult(null)
     try {
-      const out = await API_VerifyTicket(c)
-      setResult(out)
+      const accessToken = Cookies.get('ACCESS_TOKEN')
+      const verified = await API_VerifyTicket(c, accessToken)
       setCode(c)
+
+      if (!verified.valid) {
+        setResult(verified)
+        return
+      }
+
+      if (verified.source === 'demo') {
+        setResult({
+          ...verified,
+          checkedIn: true,
+          message: 'Check-in thành công (demo).',
+          detail: {
+            ...(verified.detail ?? {}),
+            checkedInAt: new Date().toISOString(),
+          },
+        })
+        return
+      }
+
+      const ticketId = verified.detail?.ticketId
+      if (!ticketId) {
+        setResult({
+          ...verified,
+          valid: false,
+          message: 'Vé hợp lệ nhưng thiếu ticket_id nên chưa thể check-in.',
+        })
+        return
+      }
+
+      const checkedIn = await API_CheckInTicket(ticketId, accessToken)
+      setResult({
+        ...verified,
+        checkedIn: true,
+        message: 'Check-in thành công.',
+        detail: {
+          ...(verified.detail ?? {}),
+          ticketCode: checkedIn.ticket_code || verified.detail?.ticketCode,
+          status: checkedIn.status || verified.detail?.status,
+          checkedInAt: checkedIn.checked_in_at,
+        },
+      })
     } finally {
       setLoading(false)
     }
@@ -70,7 +145,14 @@ export default function StaffCheckTicketPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    void runVerify(code)
+    void handleScan(code).catch(error => {
+      setLoading(false)
+      setResult({
+        valid: false,
+        source: 'api',
+        message: getApiErrorMessage(error, 'Không thể xử lý check-in vé. Vui lòng thử lại.'),
+      })
+    })
   }
 
   return (
@@ -78,9 +160,11 @@ export default function StaffCheckTicketPage() {
       <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-500">Nhân viên</p>
       <h1 className="text-3xl font-bold tracking-tight text-white">Check vé</h1>
       <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-        Nhập mã thủ công hoặc quét <strong className="text-zinc-200">QR trên vé</strong> (nội dung QR thường là mã vé / URL — hệ thống sẽ gửi nguyên chuỗi đọc được tới API). Mặc định:{' '}
-        <code className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-emerald-400">POST …/tickets/verify</code> — chỉnh trong{' '}
-        <code className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-emerald-400">API_Staff.ts</code>. Mã <strong className="text-emerald-400">DEMO…</strong> luôn hợp lệ.
+        Nhập mã thủ công hoặc quét <strong className="text-zinc-200">QR trên vé</strong> (nội dung QR sẽ gửi nguyên chuỗi qua{' '}
+        <code className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-emerald-400">qr_payload</code>). Luồng xử lý:{' '}
+        <code className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-emerald-400">POST …/tickets/verify</code> rồi{' '}
+        <code className="rounded-md border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-emerald-400">PATCH …/tickets/:id/check-in</code>. Mã{' '}
+        <strong className="text-emerald-400">DEMO…</strong> luôn hợp lệ.
       </p>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2 lg:items-start">
@@ -99,15 +183,29 @@ export default function StaffCheckTicketPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="min-h-12 shrink-0 rounded-xl bg-emerald-600 px-8 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-500 disabled:opacity-50"
+                className="min-h-12 shrink-0 rounded-xl bg-emerald-600 px-8 text-sm font-bold text-white shadow-lg shadow-emerald-900/30 transition hover:cursor-pointer hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? 'Đang kiểm tra…' : 'Kiểm tra'}
+                {loading ? 'Đang xử lý…' : 'Check-in'}
               </button>
             </div>
           </form>
         </div>
 
-        <QrTicketScanner onScan={runVerify} disabled={loading} />
+        <QrTicketScanner
+          onScan={async scannedText => {
+            try {
+              await handleScan(scannedText)
+            } catch (error) {
+              setLoading(false)
+              setResult({
+                valid: false,
+                source: 'api',
+                message: getApiErrorMessage(error, 'Không thể xử lý check-in vé. Vui lòng thử lại.'),
+              })
+            }
+          }}
+          disabled={loading}
+        />
       </div>
 
       {result ? (
@@ -119,7 +217,7 @@ export default function StaffCheckTicketPage() {
           }`}
         >
           <p className={`text-lg font-bold ${result.valid ? 'text-emerald-300' : 'text-red-300'}`}>
-            {result.valid ? 'Cho phép vào rạp' : 'Không hợp lệ'}
+            {result.checkedIn ? 'Check-in thành công' : result.valid ? 'Vé hợp lệ' : 'Không hợp lệ'}
           </p>
           <p className={`mt-1 text-sm ${result.valid ? 'text-emerald-200/85' : 'text-red-200/85'}`}>{result.message}</p>
           {result.valid && result.detail ? <DetailBlock detail={result.detail} /> : null}

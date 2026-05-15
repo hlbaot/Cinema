@@ -1,13 +1,36 @@
 export interface TicketVerifyDetail {
+  ticketId?: string
+  ticketCode?: string
+  ticketStatus?: string
+  bookingId?: string
+  bookingCode?: string
+  bookingStatus?: string
+  customerName?: string
   movieTitle?: string
   showtime?: string
   roomName?: string
   seats?: string[]
   status?: string
+  checkedInAt?: string
+}
+
+export interface TicketVerifyApiResponse {
+  valid: boolean
+  ticket_id?: string
+  ticket_code?: string
+  ticket_status?: string
+  booking_id?: string
+  booking_code?: string
+  booking_status?: string
+  customer_name?: string
+  movie_title?: string
+  showtime_start?: string
+  message?: string
 }
 
 export interface TicketVerifyOutcome {
   valid: boolean
+  checkedIn?: boolean
   message: string
   detail?: TicketVerifyDetail
   source: 'api' | 'demo'
@@ -66,11 +89,10 @@ export interface GetUserResponseDto {
 }
 
 export interface TicketCheckInResponseDto {
-  success: boolean
-  data?: {
-    message?: string
-    ticket?: Record<string, unknown>
-    [key: string]: unknown
-  }
-  message?: string
+  id: string
+  booking_id: string
+  ticket_code: string
+  qr_code_url: string
+  status: string
+  checked_in_at: string
 }

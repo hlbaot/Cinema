@@ -4,6 +4,7 @@ import { API_URL } from './url'
 import type {
   TicketVerifyDetail,
   TicketVerifyOutcome,
+  TicketVerifyApiResponse,
   StaffTicketSaleDto,
   CreateStaffRequest,
   UserItemDto,
@@ -15,6 +16,7 @@ import type {
 export type {
   TicketVerifyDetail,
   TicketVerifyOutcome,
+  TicketVerifyApiResponse,
   StaffTicketSaleDto,
   CreateStaffRequest,
   UserItemDto,
@@ -40,11 +42,81 @@ function errText(e: unknown): string {
   return 'Lỗi không xác định'
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function textValue(source: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = source[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+
+  return undefined
+}
+
+function authHeaders(accessToken?: string): Record<string, string> {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+}
+
+function unwrapVerifyResponse(raw: unknown): Record<string, unknown> {
+  if (!isRecord(raw)) return {}
+  if (isRecord(raw.data) && (typeof raw.data.valid === 'boolean' || 'ticket_id' in raw.data || 'ticketId' in raw.data)) {
+    return raw.data
+  }
+
+  return raw
+}
+
+function mapVerifyPayload(raw: unknown): TicketVerifyOutcome {
+  const data = unwrapVerifyResponse(raw)
+  const valid = data.valid === true
+  const ticketId = textValue(data, 'ticket_id', 'ticketId')
+  const ticketCode = textValue(data, 'ticket_code', 'ticketCode')
+  const ticketStatus = textValue(data, 'ticket_status', 'ticketStatus')
+  const bookingId = textValue(data, 'booking_id', 'bookingId')
+  const bookingCode = textValue(data, 'booking_code', 'bookingCode')
+  const bookingStatus = textValue(data, 'booking_status', 'bookingStatus')
+
+  return {
+    valid,
+    message: textValue(data, 'message') ?? (valid ? 'Vé hợp lệ.' : 'Vé không hợp lệ.'),
+    source: 'api',
+    detail: {
+      ticketId,
+      ticketCode,
+      ticketStatus,
+      bookingId,
+      bookingCode,
+      bookingStatus,
+      customerName: textValue(data, 'customer_name', 'customerName'),
+      movieTitle: textValue(data, 'movie_title', 'movieTitle'),
+      showtime: textValue(data, 'showtime_start', 'showtimeStart', 'showtime'),
+      status: ticketStatus,
+    },
+  }
+}
+
+function mapCheckInPayload(raw: unknown): TicketCheckInResponseDto {
+  const root = isRecord(raw) ? raw : {}
+  const data = isRecord(root.data) ? root.data : root
+  const ticket = isRecord(data.ticket) ? data.ticket : data
+
+  return {
+    id: textValue(ticket, 'id') ?? '',
+    booking_id: textValue(ticket, 'booking_id', 'bookingId') ?? '',
+    ticket_code: textValue(ticket, 'ticket_code', 'ticketCode') ?? '',
+    qr_code_url: textValue(ticket, 'qr_code_url', 'qrCodeUrl') ?? '',
+    status: textValue(ticket, 'status') ?? '',
+    checked_in_at: textValue(ticket, 'checked_in_at', 'checkedInAt') ?? '',
+  }
+}
+
 /**
- * Kiểm tra mã vé. Backend: POST body `{ code }` — có thể trả `data.valid`, `data.ticket`, …
- * Nếu gọi API lỗi: thử mã bắt đầu `DEMO` để demo nội bộ.
+ * Verify QR vé. Backend nhận body `{ qr_payload }` và trả trực tiếp thông tin vé.
+ * Nếu dùng mã bắt đầu `DEMO`, page vẫn có thể test giao diện mà không cần server.
  */
-export async function API_VerifyTicket(code: string): Promise<TicketVerifyOutcome> {
+export async function API_VerifyTicket(code: string, accessToken?: string): Promise<TicketVerifyOutcome> {
   const trimmed = code.trim()
   if (!trimmed) {
     return { valid: false, message: 'Vui lòng nhập mã vé.', source: 'demo' }
@@ -57,41 +129,27 @@ export async function API_VerifyTicket(code: string): Promise<TicketVerifyOutcom
       message: 'Vé hợp lệ (mã demo, không gọi server).',
       source: 'demo',
       detail: {
+        ticketId: 'DEMO-TICKET-ID',
+        ticketCode: trimmed,
+        bookingCode: 'CNM-DEMO',
+        bookingStatus: 'paid',
+        customerName: 'Khách demo',
         movieTitle: 'Phim demo',
         showtime: new Date().toISOString(),
         roomName: 'P.01',
         seats: ['D07', 'D08'],
-        status: 'Đã thanh toán',
+        status: 'valid',
       },
     }
   }
 
   try {
-    const res = await axios.post<{ success?: boolean; data?: Record<string, unknown> }>(
+    const res = await axios.post<TicketVerifyApiResponse | { data?: TicketVerifyApiResponse }>(
       `${API_URL}${TICKET_VERIFY_PATH}`,
-      { code: trimmed }
+      { qr_payload: trimmed },
+      { headers: authHeaders(accessToken) },
     )
-    const data = res.data?.data as Record<string, unknown> | undefined
-    if (data && typeof data.valid === 'boolean') {
-      const ticket = (data.ticket as Record<string, unknown>) || {}
-      return {
-        valid: data.valid,
-        message: typeof data.message === 'string' ? data.message : data.valid ? 'Vé hợp lệ.' : 'Vé không hợp lệ.',
-        source: 'api',
-        detail: {
-          movieTitle: typeof ticket.movie_title === 'string' ? ticket.movie_title : typeof ticket.movieTitle === 'string' ? ticket.movieTitle : undefined,
-          showtime: typeof ticket.show_time === 'string' ? ticket.show_time : typeof ticket.showtime === 'string' ? ticket.showtime : undefined,
-          roomName: typeof ticket.room_name === 'string' ? ticket.room_name : typeof ticket.roomName === 'string' ? ticket.roomName : undefined,
-          seats: Array.isArray(ticket.seats) ? (ticket.seats as string[]) : undefined,
-          status: typeof ticket.status === 'string' ? ticket.status : undefined,
-        },
-      }
-    }
-    return {
-      valid: !!res.data?.success,
-      message: 'Phản hồi máy chủ không đúng định dạng.',
-      source: 'api',
-    }
+    return mapVerifyPayload(res.data)
   } catch (e) {
     return {
       valid: false,
@@ -106,13 +164,11 @@ export async function API_CheckInTicket(
   ticketId: string,
   accessToken?: string,
 ): Promise<TicketCheckInResponseDto> {
-  const headers: Record<string, string> = {}
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`
-  }
+  const res = await axios.patch<TicketCheckInResponseDto>(`${API_URL}${TICKET_CHECKIN_PATH}/${ticketId}/check-in`, undefined, {
+    headers: authHeaders(accessToken),
+  })
 
-  const res = await axios.patch<TicketCheckInResponseDto>(`${API_URL}${TICKET_CHECKIN_PATH}/${ticketId}/check-in`, undefined, { headers })
-  return res.data
+  return mapCheckInPayload(res.data)
 }
 
 /** Chuẩn hoá một dòng bán vé từ API (snake_case / camelCase / booking_id). */
