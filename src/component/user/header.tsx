@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import SignInPage from "@/src/app/auth/signin";
 import SignUpPage from "@/src/app/auth/signup";
 import ModalProfile from "@/src/component/user/modalProfile";
-import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
+import { goToUserHome, logoutAndClearAuth } from "@/src/lib/auth-client";
 import type { HeaderUser, MembershipLevel } from "@/src/lib/auth-shared";
 
 const authModalStyle = {
@@ -188,8 +188,8 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
     setUserMenuOpen(false);
   }
 
-  function handleLogout() {
-    clearAuthCookies();
+  async function handleLogout() {
+    await logoutAndClearAuth();
     setUserOverride(null);
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
@@ -316,7 +316,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                       <button
                         onClick={() => {
                           setUserMenuOpen(false);
-                          setProfileModalOpen(true);
+                          handleNavigate("/profile");
                         }}
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5"
                       >
@@ -328,7 +328,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
                       </button>
 
                       <button
-                        onClick={() => handleNavigate("/lichChieu")}
+                        onClick={() => handleNavigate("/ve-cua-toi")}
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5"
                       >
                         <TicketIcon className="h-5 w-5 text-gray-400" />
@@ -423,7 +423,7 @@ export default function UserHeader({ user: initialUser }: UserHeaderProps) {
               {isLoggedIn ? (
                 <>
                   <button
-                    onClick={() => handleNavigate("/trangChu")}
+                    onClick={() => handleNavigate("/profile")}
                     className="flex items-center gap-3 rounded-lg px-4 py-3 text-left text-gray-300 hover:bg-white/5"
                   >
                     <UserIcon className="h-5 w-5" />

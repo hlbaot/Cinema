@@ -3,7 +3,7 @@
 
 import Cookies from 'js-cookie'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { API_CreateStaff, API_GetStaffs, type UserItemDto } from '@/src/api/API_Staff'
+import { API_CreateStaff, API_GetCustomers, API_GetStaffs, type UserItemDto } from '@/src/api/API_Staff'
 import { getApiErrorMessage } from '@/src/lib/auth-client'
 
 type UserStatus = 'active' | 'blocked'
@@ -100,10 +100,23 @@ export default function AdminUsersPage() {
     setLoadingUsers(true)
     try {
       const accessToken = Cookies.get('ACCESS_TOKEN')
-      const res = await API_GetStaffs(1, 200, accessToken)
-      setRows(res.data.users.map(mapApiUserToRow))
+      const [staffsResult, customersResult] = await Promise.allSettled([
+        API_GetStaffs(1, 200, accessToken),
+        API_GetCustomers(1, 200, '', accessToken),
+      ])
+      const staffsRes = staffsResult.status === 'fulfilled' ? staffsResult.value : null
+      const customersRes = customersResult.status === 'fulfilled' ? customersResult.value : null
+
+      if (staffsResult.status === 'rejected' && customersResult.status === 'rejected') {
+        throw customersResult.reason
+      }
+
+      setRows([
+        ...(customersRes?.data.users ?? []).map(mapApiUserToRow),
+        ...(staffsRes?.data.users ?? []).map(mapApiUserToRow),
+      ])
     } catch (error) {
-      alert(getApiErrorMessage(error, 'Không thể tải danh sách staff.'))
+      alert(getApiErrorMessage(error, 'Không thể tải danh sách người dùng.'))
       setRows([])
     } finally {
       setLoadingUsers(false)
@@ -275,7 +288,7 @@ export default function AdminUsersPage() {
             disabled={loadingUsers}
             className="rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-cyan-300 disabled:opacity-60"
           >
-            {loadingUsers ? 'Đang tải...' : 'Reload staff'}
+            {loadingUsers ? 'Đang tải...' : 'Reload người dùng'}
           </button>
         </div>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">

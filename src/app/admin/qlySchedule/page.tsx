@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   API_GenerateDraftShowtimes,
   API_GetDraftShowtimes,
+  API_GetPublishedShowtimes,
   API_GetShowtimeFormats,
   API_PublishAllShowtimeDrafts,
   API_PublishShowtimeDraft,
@@ -26,6 +27,7 @@ interface ScheduleRow {
   booked: number
   capacity: number
   status: ShowtimeStatus
+  source: 'draft' | 'published'
 }
 
 const STATUS_CONFIG: Record<ShowtimeStatus, { label: string; color: string; bg: string; border: string; dot: string }> = {
@@ -97,6 +99,14 @@ function SparklesIcon() {
   )
 }
 
+function CloseIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  )
+}
+
 function FilterTab({ active, count, label, onClick }: { active: boolean; count: number; label: string; onClick: () => void }) {
   return (
     <button
@@ -111,6 +121,15 @@ function FilterTab({ active, count, label, onClick }: { active: boolean; count: 
     </button>
   )
 }
+
+type ScheduleModal = {
+  tone: 'confirm' | 'success' | 'error'
+  title: string
+  message: string
+  cancelText: string
+  confirmText: string
+  onConfirm?: () => void | Promise<void>
+} | null
 
 function getString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
@@ -176,12 +195,15 @@ function toScheduleRow(showtime: ShowtimeDto): ScheduleRow {
     booked,
     capacity,
     status,
+    source: status === 'draft' ? 'draft' : 'published',
   }
 }
 
 export default function AdminSchedulePage() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()))
   const [rows, setRows] = useState<ScheduleRow[]>([])
+  const [draftRows, setDraftRows] = useState<ScheduleRow[]>([])
+  const [publishedRows, setPublishedRows] = useState<ScheduleRow[]>([])
   const [formats, setFormats] = useState<ShowtimeFormatOption[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | ShowtimeStatus>('all')
@@ -189,24 +211,57 @@ export default function AdminSchedulePage() {
   const [generating, setGenerating] = useState(false)
   const [publishingAll, setPublishingAll] = useState(false)
   const [publishingId, setPublishingId] = useState<string | null>(null)
+  const [scheduleModal, setScheduleModal] = useState<ScheduleModal>(null)
+  const [modalBusy, setModalBusy] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  const showScheduleMessage = useCallback((tone: 'success' | 'error', title: string, message: string) => {
+    setScheduleModal({
+      tone,
+      title,
+      message,
+      cancelText: 'Đóng',
+      confirmText: 'OK',
+    })
+  }, [])
 
   const fetchDraftShowtimes = useCallback(async () => {
     setLoading(true)
     try {
       const accessToken = Cookies.get('ACCESS_TOKEN')
       const response = await API_GetDraftShowtimes({ page: 1, limit: 300 }, accessToken)
-      setRows(response.data.showtimes.map(toScheduleRow))
+      setDraftRows(response.data.showtimes.map(toScheduleRow))
     } catch (error) {
-      alert(getApiErrorMessage(error, 'Không thể tải danh sách suất nháp.'))
+      showScheduleMessage('error', 'Tải suất nháp thất bại', getApiErrorMessage(error, 'Không thể tải danh sách suất nháp.'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showScheduleMessage])
+
+  const fetchPublishedShowtimes = useCallback(async (date = formatYMD(weekStart)) => {
+    setLoading(true)
+    try {
+      const response = await API_GetPublishedShowtimes(date)
+      setPublishedRows(response.map(toScheduleRow).map(row => ({ ...row, status: row.status === 'draft' ? 'scheduled' : row.status, source: 'published' })))
+    } catch (error) {
+      showScheduleMessage('error', 'Tải lịch đã publish thất bại', getApiErrorMessage(error, 'Không thể tải danh sách suất đã publish.'))
+      setPublishedRows([])
+    } finally {
+      setLoading(false)
+    }
+  }, [showScheduleMessage, weekStart])
 
   useEffect(() => {
     void fetchDraftShowtimes()
   }, [fetchDraftShowtimes])
+
+  useEffect(() => {
+    void fetchPublishedShowtimes()
+  }, [fetchPublishedShowtimes])
+
+  useEffect(() => {
+    setRows([...publishedRows, ...draftRows])
+  }, [draftRows, publishedRows])
 
   useEffect(() => {
     async function fetchFormats() {
@@ -290,46 +345,96 @@ export default function AdminSchedulePage() {
   const goNextWeek = () => setWeekStart(d => addDays(d, 7))
   const goThisWeek = () => setWeekStart(startOfWeekMonday(new Date()))
 
-  async function handlePublishAll() {
-    if (!confirm('Bạn chắc chắn muốn publish toàn bộ suất nháp?')) return
+  async function publishAllDrafts() {
     setPublishingAll(true)
     try {
       const accessToken = Cookies.get('ACCESS_TOKEN')
       const response = await API_PublishAllShowtimeDrafts(accessToken)
-      alert(response.data.message || `Đã publish ${response.data.total_published} suất nháp.`)
       await fetchDraftShowtimes()
+      await fetchPublishedShowtimes()
+      showScheduleMessage('success', 'Publish thành công', response.data.message || `Đã publish ${response.data.total_published} suất nháp.`)
     } catch (error) {
-      alert(getApiErrorMessage(error, 'Publish toàn bộ suất nháp thất bại.'))
+      showScheduleMessage('error', 'Publish thất bại', getApiErrorMessage(error, 'Publish toàn bộ suất nháp thất bại.'))
     } finally {
       setPublishingAll(false)
     }
   }
 
-  async function handleGenerateDrafts() {
+  function handlePublishAll() {
+    setScheduleModal({
+      tone: 'confirm',
+      title: 'Publish toàn bộ suất nháp?',
+      message: `Bạn sắp publish toàn bộ ${counts.draft} suất nháp đang có. Sau khi publish, các suất này sẽ hiển thị cho người dùng đặt vé.`,
+      cancelText: 'Hủy',
+      confirmText: 'Publish tất cả',
+      onConfirm: publishAllDrafts,
+    })
+  }
+
+  async function generateDrafts() {
     setGenerating(true)
     try {
       const accessToken = Cookies.get('ACCESS_TOKEN')
       const response = await API_GenerateDraftShowtimes({ page: 1, limit: 300 }, accessToken)
-      alert(response.data.message || 'Sinh lịch chiếu nháp thành công.')
-      setRows(response.data.showtimes.map(toScheduleRow))
+      setDraftRows(response.data.showtimes.map(toScheduleRow))
+      showScheduleMessage('success', 'Sinh lịch nháp thành công', response.data.message || 'Sinh lịch chiếu nháp thành công.')
     } catch (error) {
-      alert(getApiErrorMessage(error, 'Sinh lịch chiếu nháp thất bại.'))
+      showScheduleMessage('error', 'Sinh lịch nháp thất bại', getApiErrorMessage(error, 'Sinh lịch chiếu nháp thất bại.'))
     } finally {
       setGenerating(false)
     }
   }
 
-  async function handlePublishOne(showtimeId: string) {
+  function handleGenerateDrafts() {
+    setScheduleModal({
+      tone: 'confirm',
+      title: 'Sinh lịch chiếu nháp?',
+      message: 'Hệ thống sẽ tạo lịch chiếu nháp từ dữ liệu backend. Admin vẫn có thể kiểm tra trước khi publish.',
+      cancelText: 'Hủy',
+      confirmText: 'Sinh lịch',
+      onConfirm: generateDrafts,
+    })
+  }
+
+  async function publishOneDraft(showtimeId: string) {
     setPublishingId(showtimeId)
     try {
       const accessToken = Cookies.get('ACCESS_TOKEN')
       const response = await API_PublishShowtimeDraft(showtimeId, accessToken)
-      alert(response.data.message || 'Publish suất nháp thành công.')
       await fetchDraftShowtimes()
+      await fetchPublishedShowtimes()
+      showScheduleMessage('success', 'Publish suất thành công', response.data.message || 'Publish suất nháp thành công.')
     } catch (error) {
-      alert(getApiErrorMessage(error, 'Publish suất nháp thất bại.'))
+      showScheduleMessage('error', 'Publish suất thất bại', getApiErrorMessage(error, 'Publish suất nháp thất bại.'))
     } finally {
       setPublishingId(null)
+    }
+  }
+
+  function handlePublishOne(row: ScheduleRow) {
+    setScheduleModal({
+      tone: 'confirm',
+      title: 'Publish suất chiếu này?',
+      message: `${row.movie_title} · ${row.room_name} · ${row.date} ${row.start_time}. Suất này sẽ hiển thị cho người dùng đặt vé.`,
+      cancelText: 'Hủy',
+      confirmText: 'Publish suất',
+      onConfirm: () => publishOneDraft(row.id),
+    })
+  }
+
+  async function handleModalConfirm() {
+    const action = scheduleModal?.onConfirm
+    if (!action) {
+      setScheduleModal(null)
+      return
+    }
+
+    setModalBusy(true)
+    setScheduleModal(null)
+    try {
+      await action()
+    } finally {
+      setModalBusy(false)
     }
   }
 
@@ -368,7 +473,7 @@ export default function AdminSchedulePage() {
           ))}
         </div>
         <p className="mt-3 text-xs text-slate-600">
-          Tổng suất nháp tải từ server: {counts.all} suất.
+          Tổng suất nháp tải từ server: {draftRows.length} suất. Suất đã publish trong tuần: {publishedRows.length} suất.
         </p>
       </div>
 
@@ -492,14 +597,20 @@ export default function AdminSchedulePage() {
                                 <span className="text-violet-400/70"> {pct}%</span>
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => void handlePublishOne(r.id)}
-                              disabled={publishingId === r.id || publishingAll}
-                              className="mt-2 w-full rounded-md border border-emerald-500/35 bg-emerald-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-60"
-                            >
-                              {publishingId === r.id ? 'Đang publish...' : 'Publish suất này'}
-                            </button>
+                            {r.source === 'draft' ? (
+                              <button
+                                type="button"
+                                onClick={() => handlePublishOne(r)}
+                                disabled={publishingId === r.id || publishingAll}
+                                className="mt-2 w-full rounded-md border border-emerald-500/35 bg-emerald-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-60"
+                              >
+                                {publishingId === r.id ? 'Đang publish...' : 'Publish suất này'}
+                              </button>
+                            ) : (
+                              <div className="mt-2 rounded-md border border-violet-500/25 bg-violet-500/10 px-2 py-1 text-center text-[10px] font-black uppercase tracking-wide text-violet-300">
+                                Đã publish
+                              </div>
+                            )}
                           </div>
                         )
                       })
@@ -515,6 +626,65 @@ export default function AdminSchedulePage() {
           {inWeekFiltered.length} suất hiển thị trên lịch (sau tìm kiếm và lọc trạng thái)
         </div>
       </div>
+
+      {scheduleModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0b1019] text-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${
+                  scheduleModal.tone === 'error'
+                    ? 'text-red-300'
+                    : scheduleModal.tone === 'success'
+                      ? 'text-emerald-300'
+                      : 'text-amber-300'
+                }`}>
+                  {scheduleModal.tone === 'confirm' ? 'Xác nhận thao tác' : scheduleModal.tone === 'success' ? 'Thành công' : 'Có lỗi xảy ra'}
+                </p>
+                <h2 className="mt-1 text-2xl font-black">{scheduleModal.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScheduleModal(null)}
+                disabled={modalBusy}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-400 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
+                aria-label="Đóng"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <p className="text-sm leading-6 text-slate-400">{scheduleModal.message}</p>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-white/10 px-6 py-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setScheduleModal(null)}
+                disabled={modalBusy}
+                className="h-11 rounded-lg border border-white/10 px-5 text-xs font-black uppercase tracking-widest text-slate-400 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {scheduleModal.cancelText}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleModalConfirm()}
+                disabled={modalBusy}
+                className={`h-11 rounded-lg px-5 text-xs font-black uppercase tracking-widest transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  scheduleModal.tone === 'error'
+                    ? 'bg-red-500 text-white hover:bg-red-400'
+                    : scheduleModal.tone === 'success'
+                      ? 'bg-emerald-500 text-black hover:bg-emerald-400'
+                      : 'bg-amber-500 text-black hover:bg-amber-400'
+                }`}
+              >
+                {modalBusy ? 'Đang xử lý...' : scheduleModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

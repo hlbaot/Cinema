@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { API_AdminCreateStaff, API_AdminGetStaffs } from '@/src/api/API_Admin'
+import { API_AdminCreateStaff, API_AdminGetCustomers, API_AdminGetStaffs } from '@/src/api/API_Admin'
 import { API_URL } from './url'
 import type {
   TicketVerifyDetail,
@@ -237,4 +237,14 @@ export async function API_GetStaffs(
   accessToken?: string,
 ): Promise<GetUserResponseDto> {
   return API_AdminGetStaffs(page, limit, accessToken)
+}
+
+/** Lấy danh sách customer (role admin). */
+export async function API_GetCustomers(
+  page = 1,
+  limit = 20,
+  search = '',
+  accessToken?: string,
+): Promise<GetUserResponseDto> {
+  return API_AdminGetCustomers(page, limit, search, accessToken)
 }

@@ -8,16 +8,18 @@ const DEFAULT_ROLE: AppRole = "user";
 
 export async function getRoleFromCookies(): Promise<AppRole> {
   const cookieStore = await cookies();
-  const role = cookieStore.get("ROLE")?.value?.toLowerCase();
+  const role = (cookieStore.get("ROLE")?.value ?? cookieStore.get("USER_ROLE")?.value)?.toLowerCase();
+
+  if (role === "customer") return "user";
 
   return role === "admin" || role === "staff" || role === "user" ? role : DEFAULT_ROLE;
 }
 
 export async function getHeaderUserFromCookies(): Promise<HeaderUser | null> {
   const cookieStore = await cookies();
-  const role = cookieStore.get("ROLE")?.value?.toLowerCase();
+  const role = (cookieStore.get("ROLE")?.value ?? cookieStore.get("USER_ROLE")?.value)?.toLowerCase();
 
-  if (role !== "user") {
+  if (role !== "user" && role !== "customer") {
     return null;
   }
 
@@ -26,11 +28,11 @@ export async function getHeaderUserFromCookies(): Promise<HeaderUser | null> {
     membershipValue === "Silver" || membershipValue === "Gold" || membershipValue === "Platinum"
       ? membershipValue
       : "Member";
-  const points = Number(cookieStore.get("USER_POINTS")?.value ?? "1250");
+  const points = Number(cookieStore.get("USER_POINTS")?.value ?? "0");
 
   return {
     membershipLevel,
     name: cookieStore.get("USER_NAME")?.value ?? "Khach hang",
-    points: Number.isFinite(points) ? points : 1250,
+    points: Number.isFinite(points) ? points : 0,
   };
 }

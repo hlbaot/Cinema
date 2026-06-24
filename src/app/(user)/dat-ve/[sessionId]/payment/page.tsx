@@ -622,7 +622,7 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black pb-16 text-white">
+    <div className="min-h-screen bg-black pb-16 pt-16 text-white lg:pt-20">
       <BookingProgressBar currentStep={3} />
 
       <div className="mx-auto mt-10 grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8">
@@ -694,7 +694,7 @@ export default function PaymentPage() {
         </section>
 
         <aside>
-          <div className="sticky top-8 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+          <div className="sticky top-24 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-500 text-black">
                 <ReceiptText className="h-5 w-5" />

@@ -64,6 +64,50 @@ function parseShowtimes(raw: unknown): ShowtimeDto[] {
   return []
 }
 
+function parsePublishedShowtimes(raw: unknown): ShowtimeDto[] {
+  if (!raw || typeof raw !== 'object') return []
+
+  const top = raw as Record<string, unknown>
+  const data = top.data && typeof top.data === 'object' ? (top.data as Record<string, unknown>) : top
+  const days = Array.isArray(data.days) ? data.days : []
+  const showtimes: ShowtimeDto[] = []
+
+  for (const day of days) {
+    if (!day || typeof day !== 'object') continue
+    const dayRecord = day as Record<string, unknown>
+    const date = typeof dayRecord.date === 'string' ? dayRecord.date : ''
+    const movies = Array.isArray(dayRecord.movies) ? dayRecord.movies : []
+
+    for (const movie of movies) {
+      if (!movie || typeof movie !== 'object') continue
+      const movieRecord = movie as Record<string, unknown>
+      const movieShowtimes = Array.isArray(movieRecord.showtimes) ? movieRecord.showtimes : []
+
+      for (const showtime of movieShowtimes) {
+        if (!showtime || typeof showtime !== 'object') continue
+        const showtimeRecord = showtime as Record<string, unknown>
+
+        showtimes.push({
+          ...showtimeRecord,
+          date,
+          show_date: date,
+          movie_id: typeof movieRecord.movie_id === 'string' ? movieRecord.movie_id : undefined,
+          movie_title: typeof movieRecord.movie_title === 'string' ? movieRecord.movie_title : undefined,
+          title: typeof movieRecord.movie_title === 'string' ? movieRecord.movie_title : undefined,
+          poster_url: typeof movieRecord.poster_url === 'string' ? movieRecord.poster_url : undefined,
+          duration_minutes: typeof movieRecord.duration_minutes === 'number' ? movieRecord.duration_minutes : undefined,
+          age_rating: typeof movieRecord.age_rating === 'string' ? movieRecord.age_rating : undefined,
+          status: typeof showtimeRecord.status === 'string' ? showtimeRecord.status : 'scheduled',
+          capacity: typeof showtimeRecord.available_seats === 'number' ? showtimeRecord.available_seats : undefined,
+          total_seats: typeof showtimeRecord.available_seats === 'number' ? showtimeRecord.available_seats : undefined,
+        } as ShowtimeDto)
+      }
+    }
+  }
+
+  return showtimes
+}
+
 function parseShowtimeFormats(raw: unknown): ShowtimeFormatOption[] {
   if (!Array.isArray(raw)) return []
 
@@ -202,6 +246,13 @@ export const API_GetShowtimesByWeek = async (params: GetShowtimesByWeekParams = 
     params,
   })
   return parseShowtimes(res.data)
+}
+
+export const API_GetPublishedShowtimes = async (date?: string): Promise<ShowtimeDto[]> => {
+  const res = await axios.get(`${API_URL}/api/v1/showtimes/published`, {
+    params: date ? { date } : undefined,
+  })
+  return parsePublishedShowtimes(res.data)
 }
 
 export const API_GetShowtimeFormats = async (): Promise<ShowtimeFormatOption[]> => {

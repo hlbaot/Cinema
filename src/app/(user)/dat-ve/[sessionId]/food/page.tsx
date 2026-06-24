@@ -97,7 +97,7 @@ export default function FoodPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black pb-16 text-white">
+    <div className="min-h-screen bg-black pb-16 pt-16 text-white lg:pt-20">
       <BookingProgressBar currentStep={2} />
       
       <div className="mx-auto mt-10 grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_360px] lg:px-8">

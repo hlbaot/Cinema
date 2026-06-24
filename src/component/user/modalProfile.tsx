@@ -4,9 +4,8 @@ import * as React from "react";
 import Modal from "@mui/material/Modal";
 import Box from "@mui/material/Box";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 import type { MembershipLevel } from "@/src/lib/auth-shared";
-import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
+import { goToUserHome, logoutAndClearAuth } from "@/src/lib/auth-client";
 
 type UserProfile = {
   id: string;
@@ -61,7 +60,7 @@ function getUserFromCookies(): UserProfile | null {
       ? membershipValue
       : "Member";
 
-  const points = Number(Cookies.get("USER_POINTS") ?? "1250");
+  const points = Number(Cookies.get("USER_POINTS") ?? "0");
 
   return {
     id: Cookies.get("USER_ID") || "",
@@ -69,7 +68,7 @@ function getUserFromCookies(): UserProfile | null {
     name: Cookies.get("USER_NAME") || "Khách hàng",
     role,
     membershipLevel,
-    points: Number.isFinite(points) ? points : 1250,
+    points: Number.isFinite(points) ? points : 0,
     provider: Cookies.get("AUTH_PROVIDER") || "credentials",
   };
 }
@@ -85,11 +84,10 @@ const boxStyle = {
 };
 
 export default function ModalProfile({ open, onClose }: ModalProfileProps) {
-  const router = useRouter();
   const user = open ? getUserFromCookies() : null;
 
-  function handleLogout() {
-    clearAuthCookies();
+  async function handleLogout() {
+    await logoutAndClearAuth();
     onClose();
     goToUserHome();
   }

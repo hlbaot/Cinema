@@ -2,30 +2,50 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import axios from "axios";
+import Cookies from "js-cookie";
 import { API_GoogleCallback } from "@/src/api/API_Auth";
-import { saveLoginCookies, normalizeRole } from "@/src/lib/auth-client";
+import { saveLoginCookies, saveUserCookies, normalizeRole } from "@/src/lib/auth-client";
+import { getUserFromAuthResponse } from "@/src/lib/auth-user";
 import { getRoleHomePath } from "@/src/lib/auth-shared";
+import type { User } from "@/src/interface/user";
 
 /**
  * Google OAuth Callback Page
  *
  * Flow:
- *  1. Backend redirects here after Google consent with `?code=...` in the URL
- *  2. We send that code to our backend API to exchange for tokens + user info
- *  3. Save tokens/user info to cookies
- *  4. Redirect to the user home page
- *
- * Alternative flow:
- *  - If the backend directly returns tokens in the redirect URL
- *    (access_token, refresh_token, user info as query params)
- *    we parse them directly
+ *  1. Backend redirects here after Google consent with `?provider=google&status=success`
+ *  2. Backend has already set auth cookies
+ *  3. We call `/api/v1/users/me` with credentials to get the logged-in user
+ *  4. Save user display/role cookies and redirect to the role home page
  */
+
+function getUserFromMeResponse(payload: unknown): User | null {
+  const user = getUserFromAuthResponse(payload);
+  if (user) return user;
+
+  console.log("[google-callback] unable to parse user", {
+    payloadType: typeof payload,
+    rootKeys: payload && typeof payload === "object" ? Object.keys(payload) : [],
+    dataKeys:
+      payload && typeof payload === "object" && "data" in payload && payload.data && typeof payload.data === "object"
+        ? Object.keys(payload.data)
+        : [],
+  });
+
+  return null;
+}
+
+async function fetchCurrentUser() {
+  return axios.get("/api/auth/me", {
+    withCredentials: true,
+  });
+}
 
 function GoogleCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const processed = useRef(false);
 
   useEffect(() => {
@@ -34,43 +54,41 @@ function GoogleCallbackInner() {
 
     async function handleCallback() {
       try {
-        // Case 1: Backend returned tokens directly in the URL
-        const accessToken = searchParams.get("access_token");
-        const refreshToken = searchParams.get("refresh_token");
+        const provider = searchParams.get("provider");
+        const status = searchParams.get("status");
 
-        if (accessToken && refreshToken) {
-          // Parse user info from query params
-          const userId = searchParams.get("user_id") || searchParams.get("id") || "";
-          const email = searchParams.get("email") || "";
-          const fullName =
-            searchParams.get("full_name") ||
-            searchParams.get("name") ||
-            "";
-          const role = searchParams.get("role") || "user";
-          const status = searchParams.get("status") || "active";
+        // Current backend flow: OAuth success is confirmed by query params,
+        // while the auth session itself is stored in backend cookies.
+        if (provider === "google" && status === "success") {
+          const response = await fetchCurrentUser();
+          console.log("[google-callback] /api/auth/me response", {
+            status: response.status,
+            rootKeys: response.data && typeof response.data === "object" ? Object.keys(response.data) : [],
+            dataKeys:
+              response.data && typeof response.data === "object" && "data" in response.data && response.data.data && typeof response.data.data === "object"
+                ? Object.keys(response.data.data)
+                : [],
+          });
+          const user = getUserFromMeResponse(response.data);
 
-          const loginData = {
-            message: "Google login success",
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            user: {
-              id: userId,
-              email,
-              full_name: fullName,
-              role,
-              status,
-            },
-          };
+          if (!user) {
+            const normalizedRole = normalizeRole(Cookies.get("ROLE") ?? Cookies.get("USER_ROLE"));
+            Cookies.set("ROLE", normalizedRole, { path: "/" });
+            Cookies.set("AUTH_PROVIDER", "google", { path: "/" });
+            router.replace(getRoleHomePath(normalizedRole));
+            router.refresh();
+            return;
+          }
 
-          saveLoginCookies(loginData, "google");
+          saveUserCookies(user, "google");
 
-          const normalizedRole = normalizeRole(role);
+          const normalizedRole = normalizeRole(user.role);
           router.replace(getRoleHomePath(normalizedRole));
           router.refresh();
           return;
         }
 
-        // Case 2: Backend returned a code that needs to be exchanged
+        // Legacy fallback: older backend returned a code that needs to be exchanged.
         const code = searchParams.get("code");
         if (code) {
           const response = await API_GoogleCallback(code);
@@ -92,8 +110,6 @@ function GoogleCallbackInner() {
         const message =
           err instanceof Error ? err.message : "Đã có lỗi xảy ra khi đăng nhập bằng Google.";
         setError(message);
-      } finally {
-        setLoading(false);
       }
     }
 

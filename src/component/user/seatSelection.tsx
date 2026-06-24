@@ -66,7 +66,7 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
     const s = seconds % 60
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
-  
+
   const selectedSeats = seats.filter(s => s.status === 'selected')
   const totalPrice = selectedSeats.reduce((acc, s) => acc + s.price, 0)
   const selectedSeatLabels = selectedSeats.map(seat => `${seat.row}${seat.col}`)
@@ -108,7 +108,7 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
   const getSeatStyles = (seat: Seat) => {
     if (seat.status === 'selected') return 'bg-yellow-500 border-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]'
     if (seat.status === 'sold') return 'bg-zinc-800 border-zinc-800 text-transparent opacity-20 cursor-not-allowed pointer-events-none'
-    
+
     switch (seat.type) {
       case 'standard': return 'border-zinc-700 text-zinc-500 hover:border-white hover:text-white'
       case 'vip': return 'border-yellow-600/60 text-yellow-600/80 hover:border-yellow-500 hover:text-yellow-500'
@@ -198,7 +198,6 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
 
       {/* KHU VỰC BẢN ĐỒ GHẾ */}
       <div className="flex-1 bg-zinc-950/40 rounded-[3rem] border border-zinc-800/50 p-6 lg:p-10 flex flex-col items-center shadow-2xl backdrop-blur-sm min-w-0 overflow-hidden">
-        
         {/* Chú thích các loại ghế */}
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 mb-14 w-full">
           {[
@@ -209,138 +208,138 @@ export default function SeatSelection({ sessionId, roomId, movie }: SeatSelectio
             { label: 'ĐÃ BÁN', class: 'bg-zinc-800/50 opacity-40 border-zinc-800' }
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2.5">
-               <div className={`w-4 h-4 rounded-md border ${item.class} shadow-sm`} />
-               <span className="text-[10px] font-black text-zinc-500 tracking-wider uppercase">{item.label}</span>
+              <div className={`w-4 h-4 rounded-md border ${item.class} shadow-sm`} />
+              <span className="text-[10px] font-black text-zinc-500 tracking-wider uppercase">{item.label}</span>
             </div>
           ))}
         </div>
 
         {/* Khung chứa Màn hình và Ghế - Hạn chế scroll ngang bằng flex-col items-center */}
         <div className="flex flex-col items-center w-full max-w-full pb-10">
-            {/* Màn hình */}
-            <div className="w-full max-w-[600px] mb-20 shrink-0">
-               <div className="relative h-16 flex flex-col items-center">
-                  <div className="absolute inset-x-0 -top-12 h-24 bg-yellow-500/10 blur-[80px] rounded-full pointer-events-none" />
-                  <svg className="w-full text-yellow-500/80 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" viewBox="0 0 1000 40" preserveAspectRatio="none">
-                     <path d="M0,40 Q500,0 1000,40" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-                  </svg>
-                  <p className="mt-8 text-[11px] font-black text-zinc-600 uppercase tracking-[1em] pl-[1em]">MÀN HÌNH</p>
-               </div>
+          {/* Màn hình */}
+          <div className="w-full max-w-[600px] mb-20 shrink-0">
+            <div className="relative h-16 flex flex-col items-center">
+              <div className="absolute inset-x-0 -top-12 h-24 bg-yellow-500/10 blur-[80px] rounded-full pointer-events-none" />
+              <svg className="w-full text-yellow-500/80 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" viewBox="0 0 1000 40" preserveAspectRatio="none">
+                <path d="M0,40 Q500,0 1000,40" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+              </svg>
+              <p className="mt-8 text-[11px] font-black text-zinc-600 uppercase tracking-[1em] pl-[1em]">MÀN HÌNH</p>
             </div>
+          </div>
 
-            {/* Lưới ghế ngồi - Không scroll ngang, cột đều nhau */}
-            <div className="select-none w-full py-4">
-               <div className="flex flex-col gap-2 sm:gap-4 w-full max-w-[800px] mx-auto px-1 sm:px-4">
-                {seatRows.map(row => (
-                  <div key={row} className="flex items-center justify-between w-full gap-1 sm:gap-4">
-                    <span className="w-4 sm:w-6 shrink-0 text-center text-[10px] sm:text-[11px] font-black text-zinc-800">{row}</span>
-                    <div className="grid gap-1 sm:gap-2 flex-1" style={{ gridTemplateColumns: `repeat(${maxCols}, minmax(0, 1fr))` }}>
-                      {seats.filter(s => s.row === row).map(seat => (
-                        <button
-                          key={seat.id}
-                          onClick={() => toggleSeat(seat.id)}
-                          disabled={seat.status === 'sold' || isExpired}
-                          style={{ gridColumn: parseInt(seat.col) }}
-                          className={`w-full relative transition-all duration-200 rounded sm:rounded-lg border sm:border-2 text-[7px] sm:text-[10px] font-bold flex items-center justify-center hover:scale-[1.05] active:scale-95 ${getSeatStyles(seat)} aspect-square`}
-                        >
-                          <span className="scale-75 sm:scale-100 truncate">{seat.row}{seat.col}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <span className="w-4 sm:w-6 shrink-0 text-center text-[10px] sm:text-[11px] font-black text-zinc-800">{row}</span>
+          {/* Lưới ghế ngồi - Không scroll ngang, cột đều nhau */}
+          <div className="select-none w-full py-4">
+            <div className="flex flex-col gap-2 sm:gap-4 w-full max-w-[800px] mx-auto px-1 sm:px-4">
+              {seatRows.map(row => (
+                <div key={row} className="flex items-center justify-between w-full gap-1 sm:gap-4">
+                  <span className="w-4 sm:w-6 shrink-0 text-center text-[10px] sm:text-[11px] font-black text-zinc-800">{row}</span>
+                  <div className="grid gap-1 sm:gap-2 flex-1" style={{ gridTemplateColumns: `repeat(${maxCols}, minmax(0, 1fr))` }}>
+                    {seats.filter(s => s.row === row).map(seat => (
+                      <button
+                        key={seat.id}
+                        onClick={() => toggleSeat(seat.id)}
+                        disabled={seat.status === 'sold' || isExpired}
+                        style={{ gridColumn: parseInt(seat.col) }}
+                        className={`w-full relative transition-all duration-200 rounded sm:rounded-lg border sm:border-2 text-[7px] sm:text-[10px] font-bold flex items-center justify-center hover:scale-[1.05] active:scale-95 ${getSeatStyles(seat)} aspect-square`}
+                      >
+                        <span className="scale-75 sm:scale-100 truncate">{seat.row}{seat.col}</span>
+                      </button>
+                    ))}
                   </div>
-                ))}
-               </div>
+                  <span className="w-4 sm:w-6 shrink-0 text-center text-[10px] sm:text-[11px] font-black text-zinc-800">{row}</span>
+                </div>
+              ))}
             </div>
+          </div>
         </div>
 
         {/* Thanh trạng thái dưới cùng */}
         <div className="w-full max-w-[800px] flex flex-col sm:flex-row items-center justify-between gap-6 p-5 rounded-2xl bg-zinc-900/40 border border-zinc-800/60 shadow-xl backdrop-blur-md">
-           <div className="flex items-center gap-3 text-zinc-500 text-[10px] font-bold italic opacity-70">
-              <Info className="w-4 h-4 text-yellow-500/70" />
-              <span>Thời gian giữ ghế của bạn là 5 phút. Vui lòng thanh toán sớm.</span>
-           </div>
-           <div className="flex items-center gap-8">
-              <div className="text-right">
-                 <p className="text-[10px] font-black text-zinc-600 tracking-widest mb-1 uppercase">Tổng tiền</p>
-                 <p className="text-xl font-black text-yellow-500">{totalPrice.toLocaleString()} đ</p>
-              </div>
-              <div className="w-px h-10 bg-zinc-800" />
-              <div className="text-right">
-                 <p className="text-[10px] font-black text-zinc-600 tracking-widest mb-1 uppercase">Còn lại</p>
-                 <p className={`text-xl font-black ${countdown < 60 ? 'text-red-500 animate-pulse' : 'text-zinc-300'}`}>{formatTime(countdown)}</p>
-              </div>
-           </div>
+          <div className="flex items-center gap-3 text-zinc-500 text-[10px] font-bold italic opacity-70">
+            <Info className="w-4 h-4 text-yellow-500/70" />
+            <span>Thời gian giữ ghế của bạn là 5 phút. Vui lòng thanh toán sớm.</span>
+          </div>
+          <div className="flex items-center gap-8">
+            <div className="text-right">
+              <p className="text-[10px] font-black text-zinc-600 tracking-widest mb-1 uppercase">Tổng tiền</p>
+              <p className="text-xl font-black text-yellow-500">{totalPrice.toLocaleString()} đ</p>
+            </div>
+            <div className="w-px h-10 bg-zinc-800" />
+            <div className="text-right">
+              <p className="text-[10px] font-black text-zinc-600 tracking-widest mb-1 uppercase">Còn lại</p>
+              <p className={`text-xl font-black ${countdown < 60 ? 'text-red-500 animate-pulse' : 'text-zinc-300'}`}>{formatTime(countdown)}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* SIDEBAR TÓM TẮT */}
       <aside className="w-full xl:w-[380px] shrink-0">
         <div className="bg-zinc-900/80 border border-zinc-800/60 rounded-[2.5rem] overflow-hidden shadow-2xl sticky top-8 backdrop-blur-xl">
-           <div className="p-8">
-              {/* Thông tin phim */}
-              <div className="flex gap-5 mb-8">
-                 <div className="w-28 h-40 relative rounded-xl overflow-hidden shadow-2xl border border-zinc-800 shrink-0">
-                    {movie && <NextImage fill src={movie.poster} alt={movie.title} className="object-cover" sizes="112px" loading="eager" />}
-                 </div>
-                 <div className="flex-1 py-1">
-                    <h3 className="font-black text-xl text-white tracking-tight leading-tight mb-3 uppercase">{movie?.title}</h3>
-                    <div className="space-y-3">
-                       <span className="inline-block px-2.5 py-1 bg-yellow-500 text-black text-[9px] font-black rounded-full uppercase">2D Digital</span>
-                       <div className="space-y-1.5 text-xs text-zinc-400 font-bold">
-                          <p>Suất chiếu: <span className="text-white">15:10 | 11/05/2026</span></p>
-                          <p>Rạp: <span className="text-white uppercase">Rạp 03</span></p>
-                          <div className="pt-2">
-                             <p className="text-zinc-600 font-black text-[10px] uppercase mb-2">Ghế đang chọn:</p>
-                             <div className="flex flex-wrap gap-2">
-                                {selectedSeats.length > 0 ? selectedSeats.map(s => (
-                                   <span key={s.id} className="min-w-[40px] h-7 bg-zinc-800 border border-yellow-500/20 text-yellow-500 font-black rounded-lg flex items-center justify-center text-[10px]">{s.row}{s.col}</span>
-                                )) : <span className="text-zinc-700 italic font-medium">Chưa chọn ghế</span>}
-                             </div>
-                          </div>
-                       </div>
+          <div className="p-8">
+            {/* Thông tin phim */}
+            <div className="flex gap-5 mb-8">
+              <div className="w-28 h-40 relative rounded-xl overflow-hidden shadow-2xl border border-zinc-800 shrink-0">
+                {movie && <NextImage fill src={movie.poster} alt={movie.title} className="object-cover" sizes="112px" loading="eager" />}
+              </div>
+              <div className="flex-1 py-1">
+                <h3 className="font-black text-xl text-white tracking-tight leading-tight mb-3 uppercase">{movie?.title}</h3>
+                <div className="space-y-3">
+                  <span className="inline-block px-2.5 py-1 bg-yellow-500 text-black text-[9px] font-black rounded-full uppercase">2D Digital</span>
+                  <div className="space-y-1.5 text-xs text-zinc-400 font-bold">
+                    <p>Suất chiếu: <span className="text-white">15:10 | 11/05/2026</span></p>
+                    <p>Rạp: <span className="text-white uppercase">Rạp 03</span></p>
+                    <div className="pt-2">
+                      <p className="text-zinc-600 font-black text-[10px] uppercase mb-2">Ghế đang chọn:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSeats.length > 0 ? selectedSeats.map(s => (
+                          <span key={s.id} className="min-w-[40px] h-7 bg-zinc-800 border border-yellow-500/20 text-yellow-500 font-black rounded-lg flex items-center justify-center text-[10px]">{s.row}{s.col}</span>
+                        )) : <span className="text-zinc-700 italic font-medium">Chưa chọn ghế</span>}
+                      </div>
                     </div>
-                 </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chi tiết giá vé */}
+            <div className="space-y-5 border-t border-zinc-800/80 pt-6 mt-6">
+              <div className="flex justify-between items-center text-zinc-400">
+                <span className="font-black text-[10px] uppercase tracking-widest">Tạm tính ({selectedSeats.length})</span>
+                <span className="font-black text-white text-lg">{totalPrice.toLocaleString()} đ</span>
               </div>
 
-              {/* Chi tiết giá vé */}
-              <div className="space-y-5 border-t border-zinc-800/80 pt-6 mt-6">
-                 <div className="flex justify-between items-center text-zinc-400">
-                    <span className="font-black text-[10px] uppercase tracking-widest">Tạm tính ({selectedSeats.length})</span>
-                    <span className="font-black text-white text-lg">{totalPrice.toLocaleString()} đ</span>
-                 </div>
-                 
-                 <div className="bg-zinc-950/60 rounded-2xl p-6 border border-zinc-800/50 flex flex-col items-center">
-                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">TỔNG THANH TOÁN</p>
-                    <p className="text-3xl font-black text-yellow-500 tracking-tighter">
-                       {totalPrice.toLocaleString()} 
-                       <span className="text-sm font-bold ml-1.5 uppercase opacity-80">₫</span>
-                    </p>
-                 </div>
+              <div className="bg-zinc-950/60 rounded-2xl p-6 border border-zinc-800/50 flex flex-col items-center">
+                <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">TỔNG THANH TOÁN</p>
+                <p className="text-3xl font-black text-yellow-500 tracking-tighter">
+                  {totalPrice.toLocaleString()}
+                  <span className="text-sm font-bold ml-1.5 uppercase opacity-80">₫</span>
+                </p>
               </div>
-           </div>
+            </div>
+          </div>
 
-           {/* Nút điều hướng */}
-           <div className="p-8 pt-0 flex gap-3">
-              <button 
-                onClick={() => window.history.back()} 
-                className="w-1/3 py-4 px-4 border border-zinc-700 text-zinc-500 font-black rounded-xl hover:bg-zinc-800 hover:text-white transition-all text-[10px] uppercase tracking-widest"
-              >
-                QUAY LẠI
-              </button>
-              <button
-                type="button"
-                onClick={handleContinue}
-                disabled={selectedSeats.length === 0 || isExpired}
-                className={`flex-1 py-4 px-4 font-black rounded-xl transition-all shadow-xl text-[10px] uppercase tracking-widest text-center flex items-center justify-center ${
-                  selectedSeats.length > 0 && !isExpired
-                  ? 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-yellow-500/20' 
+          {/* Nút điều hướng */}
+          <div className="p-8 pt-0 flex gap-3">
+            <button
+              onClick={() => window.history.back()}
+              className="w-1/3 py-4 px-4 border border-zinc-700 text-zinc-500 font-black rounded-xl hover:bg-zinc-800 hover:text-white transition-all text-[10px] uppercase tracking-widest"
+            >
+              QUAY LẠI
+            </button>
+            <button
+              type="button"
+              onClick={handleContinue}
+              disabled={selectedSeats.length === 0 || isExpired}
+              className={`flex-1 py-4 px-4 font-black rounded-xl transition-all shadow-xl text-[10px] uppercase tracking-widest text-center flex items-center justify-center ${
+                selectedSeats.length > 0 && !isExpired
+                  ? 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-yellow-500/20'
                   : 'bg-zinc-800 text-zinc-600 cursor-not-allowed shadow-none'
-                }`}
-              >
-                TIẾP TỤC
-              </button>
-           </div>
+              }`}
+            >
+              TIẾP TỤC
+            </button>
+          </div>
         </div>
       </aside>
     </div>

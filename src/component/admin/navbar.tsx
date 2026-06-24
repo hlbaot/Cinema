@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
-import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
+import { goToUserHome, logoutAndClearAuth } from "@/src/lib/auth-client";
 
 type AdminLink = {
   href: string;
@@ -118,8 +118,8 @@ export default function AdminNavbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  function handleLogout() {
-    clearAuthCookies();
+  async function handleLogout() {
+    await logoutAndClearAuth();
     goToUserHome();
   }
 

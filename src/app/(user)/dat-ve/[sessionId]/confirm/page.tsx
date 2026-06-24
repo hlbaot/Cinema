@@ -36,7 +36,7 @@ export default function BookingConfirmPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-black pb-16 text-white">
+    <div className="min-h-screen bg-black pb-16 pt-16 text-white lg:pt-20">
       <BookingProgressBar currentStep={4} />
 
       <main className="mx-auto mt-10 max-w-4xl px-4 sm:px-6">

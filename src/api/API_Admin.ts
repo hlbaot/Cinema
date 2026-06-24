@@ -46,6 +46,8 @@ export interface GetStaffsResponseDto {
 
 const CREATE_STAFF_PATH = "/api/v1/users/staff";
 const GET_STAFFS_PATH = "/api/v1/users/staffs";
+const GET_CUSTOMERS_PATH = "/users/customers";
+const GET_CUSTOMERS_FALLBACK_PATH = "/api/v1/users/customers";
 
 function createAuthHeaders(accessToken?: string) {
   const headers: Record<string, string> = {};
@@ -58,7 +60,7 @@ function createAuthHeaders(accessToken?: string) {
 }
 
 function mapUserItem(raw: Record<string, unknown>): UserItemDto {
-  const role = typeof raw.role === "string" ? raw.role : "staff";
+  const role = typeof raw.role === "string" ? raw.role : "user";
   const status = typeof raw.status === "string" ? raw.status : "active";
   const auth =
     raw.auth_provider === "google" || raw.auth_provider === "local" ? raw.auth_provider : "local";
@@ -66,7 +68,7 @@ function mapUserItem(raw: Record<string, unknown>): UserItemDto {
   return {
     id: String(raw.id ?? raw._id ?? ""),
     email: String(raw.email ?? ""),
-    full_name: String(raw.full_name ?? raw.fullName ?? ""),
+    full_name: String(raw.full_name ?? raw.fullName ?? raw.name ?? raw.customer_name ?? ""),
     phone: typeof raw.phone === "string" ? raw.phone : raw.phone === null ? null : null,
     avatar_url:
       typeof raw.avatar_url === "string"
@@ -151,7 +153,7 @@ function normalizeGetStaffsResponse(raw: unknown, page: number, limit: number): 
   const inner =
     root.data && typeof root.data === "object" ? (root.data as Record<string, unknown>) : root;
 
-  const rawUsers = inner.users ?? inner.data;
+  const rawUsers = inner.users ?? inner.customers ?? inner.items ?? inner.data;
   const users: UserItemDto[] = Array.isArray(rawUsers)
     ? (rawUsers as unknown[])
         .filter((u): u is Record<string, unknown> => Boolean(u) && typeof u === "object")
@@ -196,6 +198,26 @@ export async function API_AdminGetStaffs(
     headers: createAuthHeaders(accessToken),
     params: { page, limit },
   });
+
+  return normalizeGetStaffsResponse(res.data, page, limit);
+}
+
+export async function API_AdminGetCustomers(
+  page = 1,
+  limit = 20,
+  search = "",
+  accessToken?: string,
+): Promise<GetStaffsResponseDto> {
+  const config = {
+    headers: createAuthHeaders(accessToken),
+    params: { page, limit, ...(search.trim() ? { search: search.trim() } : {}) },
+  };
+  let res;
+  try {
+    res = await axios.get(`${API_URL}${GET_CUSTOMERS_PATH}`, config);
+  } catch {
+    res = await axios.get(`${API_URL}${GET_CUSTOMERS_FALLBACK_PATH}`, config);
+  }
 
   return normalizeGetStaffsResponse(res.data, page, limit);
 }

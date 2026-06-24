@@ -1,15 +1,27 @@
 "use client";
 
 import Cookies from "js-cookie";
+import { API_Logout } from "@/src/api/API_Auth";
 import type { LoginResponse, VerifyOtpResponse } from "@/src/interface/auth";
+import type { User } from "@/src/interface/user";
 import type { AppRole } from "@/src/lib/auth-shared";
 
 export function normalizeRole(role?: string): AppRole {
   const normalizedRole = role?.toLowerCase();
 
-  return normalizedRole === "admin" || normalizedRole === "staff" || normalizedRole === "user"
+  return normalizedRole === "admin" || normalizedRole === "staff" || normalizedRole === "user" || normalizedRole === "customer"
     ? normalizedRole
+      ? normalizedRole === "customer"
+        ? "user"
+        : normalizedRole
+      : "user"
     : "user";
+}
+
+function clearStoredProfileStats() {
+  Cookies.remove("USER_POINTS", { path: '/' });
+  Cookies.remove("MEMBERSHIP_LEVEL", { path: '/' });
+  Cookies.remove("USER_MEMBERSHIP_LEVEL", { path: '/' });
 }
 
 export function saveLoginCookies(
@@ -17,6 +29,8 @@ export function saveLoginCookies(
   provider: "credentials" | "google" | "mock" = "credentials",
 ) {
   const role = normalizeRole(data.user.role);
+
+  clearStoredProfileStats();
 
   Cookies.set("ACCESS_TOKEN", data.access_token, { path: '/' });
   Cookies.set("REFRESH_TOKEN", data.refresh_token, { path: '/' });
@@ -36,16 +50,57 @@ export function saveLoginCookies(
   });
 }
 
+export function saveUserCookies(
+  user: User,
+  provider: "credentials" | "google" | "mock" = "credentials",
+) {
+  const role = normalizeRole(user.role);
+
+  clearStoredProfileStats();
+
+  Cookies.set("ROLE", role, { path: '/' });
+  Cookies.set("AUTH_PROVIDER", provider, { path: '/' });
+
+  if (user.id) Cookies.set("USER_ID", user.id, { path: '/' });
+  if (user.email) Cookies.set("USER_EMAIL", user.email, { path: '/' });
+  if (user.full_name) Cookies.set("USER_NAME", user.full_name, { path: '/' });
+
+  Object.entries(user).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && key !== 'id' && key !== 'email' && key !== 'full_name') {
+      Cookies.set(`USER_${key.toUpperCase()}`, typeof value === 'object' ? JSON.stringify(value) : String(value), { path: '/' });
+    }
+  });
+}
+
 export function clearAuthCookies() {
   Cookies.remove("ACCESS_TOKEN", { path: '/' });
   Cookies.remove("REFRESH_TOKEN", { path: '/' });
+  Cookies.remove("access_token", { path: '/' });
+  Cookies.remove("refresh_token", { path: '/' });
   Cookies.remove("ROLE", { path: '/' });
+  Cookies.remove("USER_ROLE", { path: '/' });
+  Cookies.remove("USER_STATUS", { path: '/' });
   Cookies.remove("AUTH_PROVIDER", { path: '/' });
   Cookies.remove("USER_ID", { path: '/' });
   Cookies.remove("USER_EMAIL", { path: '/' });
   Cookies.remove("USER_NAME", { path: '/' });
   Cookies.remove("USER_POINTS", { path: '/' });
   Cookies.remove("MEMBERSHIP_LEVEL", { path: '/' });
+  Cookies.remove("USER_MEMBERSHIP_LEVEL", { path: '/' });
+}
+
+export async function logoutAndClearAuth() {
+  const accessToken = Cookies.get("ACCESS_TOKEN") ?? Cookies.get("access_token");
+
+  try {
+    if (accessToken) {
+      await API_Logout(accessToken);
+    }
+  } catch (error) {
+    console.warn("Logout API failed, clearing local auth state anyway.", error);
+  } finally {
+    clearAuthCookies();
+  }
 }
 
 export function markGoogleLogin() {

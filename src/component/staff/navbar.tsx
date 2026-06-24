@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
+import { goToUserHome, logoutAndClearAuth } from "@/src/lib/auth-client";
 import { cn } from "@/src/lib/utils";
 
 const staffLinks = [
@@ -24,8 +24,8 @@ function LogoutIcon() {
 export default function StaffNavbar() {
   const pathname = usePathname();
 
-  function handleLogout() {
-    clearAuthCookies();
+  async function handleLogout() {
+    await logoutAndClearAuth();
     goToUserHome();
   }
 

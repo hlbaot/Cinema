@@ -1,6 +1,6 @@
 "use client";
 
-import { clearAuthCookies, goToUserHome } from "@/src/lib/auth-client";
+import { goToUserHome, logoutAndClearAuth } from "@/src/lib/auth-client";
 
 function LogoutIcon() {
   return (
@@ -16,8 +16,8 @@ function LogoutIcon() {
 }
 
 export default function AdminHeader() {
-  function handleLogout() {
-    clearAuthCookies();
+  async function handleLogout() {
+    await logoutAndClearAuth();
     goToUserHome();
   }
 

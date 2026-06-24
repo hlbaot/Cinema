@@ -38,7 +38,7 @@ export default function BookingPage({ params }: { params: Promise<{ sessionId: s
   }
 
   return (
-    <div className="min-h-screen bg-black pb-12">
+    <div className="min-h-screen bg-black pb-12 pt-16 lg:pt-20">
       {/* Thanh tiến trình đặt vé - Bước 2: Chọn ghế */}
       <BookingProgressBar currentStep={1} />
       

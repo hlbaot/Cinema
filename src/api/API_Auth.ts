@@ -2,6 +2,13 @@ import axios from "axios";
 import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, VerifyOtpRequest, VerifyOtpResponse, } from "@/src/interface/auth";
 import { API_URL } from "./url"
 
+export type LogoutResponse = {
+    success: boolean;
+    data: {
+        message: string;
+    };
+};
+
 export const API_SignIn = async (values: LoginRequest): Promise<LoginResponse> => {
     const res = await axios.post<LoginResponse>(
         `${API_URL}/api/v1/auth/login`,
@@ -17,6 +24,20 @@ export const API_SignUp = async (values: RegisterRequest): Promise<RegisterRespo
 
 export const API_RefreshAccessToken = async (refresh_token: string) => {
     const res = await axios.post(`${API_URL}/api/v1/auth/refresh-token`, { refresh_token });
+    return res.data;
+};
+
+export const API_Logout = async (accessToken: string): Promise<LogoutResponse> => {
+    const res = await axios.post<LogoutResponse>(
+        `${API_URL}/api/v1/auth/logout`,
+        undefined,
+        {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            withCredentials: true,
+        }
+    );
     return res.data;
 };
 
